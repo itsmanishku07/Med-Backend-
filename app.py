@@ -41,8 +41,7 @@ def create_app():
         engineio_logger=False,
         ping_timeout=60,
         ping_interval=25,
-        websocket_ping_interval=25,
-        websocket_ping_timeout=60,
+        manage_session=False,   # we use Firebase tokens, not Flask sessions
     )
 
     # Initialize Firebase Admin SDK

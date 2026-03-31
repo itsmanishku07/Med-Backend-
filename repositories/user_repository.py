@@ -27,7 +27,8 @@ class UserRepository:
 
     def find_by_email(self, email: str) -> dict | None:
         with SessionLocal() as session:
-            user = session.query(User).filter_by(email=email).first()
+            # Query by lowercase email
+            user = session.query(User).filter(User.email.ilike(email)).first()
             return self._to_dict(user) if user else None
 
     def find_by_id(self, user_id: str) -> dict | None:
@@ -41,7 +42,7 @@ class UserRepository:
             user = User(
                 id=str(uuid.uuid4()),
                 firebase_uid=firebase_uid,
-                email=email,
+                email=email.lower() if email else '',
                 name=name,
                 role=UserRole[role],
                 phone=phone,

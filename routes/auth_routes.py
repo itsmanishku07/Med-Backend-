@@ -26,7 +26,7 @@ def register():
 
     data = request.get_json() or {}
     name = data.get('name', '').strip()
-    email = data.get('email', '').strip()
+    email = data.get('email', '').strip().lower()
     role = data.get('role', 'PATIENT').upper()
 
     if not name or not email:
@@ -38,13 +38,18 @@ def register():
     try:
         existing = user_repo.find_by_firebase_uid(token_data['uid'])
         if existing:
-            # User exists — update their role and name so doctor registration works
-            # even if they were previously auto-created as PATIENT
-            updates = {'role': role, 'name': name}
+            # User exists — check if the email changed and if it collides with another account
+            if existing['email'].lower() != email:
+                email_user = user_repo.find_by_email(email)
+                if email_user and email_user['firebase_uid'] != token_data['uid']:
+                     return jsonify({'success': False, 'message': 'Email already in use by another account'}), 409
+
+            # Update existing user (e.g. upgrading PATIENT to DOCTOR)
+            updates = {'role': role, 'name': name, 'email': email}
             updated = user_repo.update_user(existing['id'], updates)
             return jsonify({'success': True, 'message': 'User updated', 'user': updated}), 200
 
-        # Check email collision from a different firebase account
+        # New Firebase UID — check email collision
         email_user = user_repo.find_by_email(email)
         if email_user:
             return jsonify({'success': False, 'message': 'Email already in use by another account'}), 409
@@ -72,6 +77,8 @@ def auto_register():
     if role not in ('ADMIN', 'DOCTOR', 'PATIENT'):
         role = 'PATIENT'
 
+    email = token_data.get('email', '').lower()
+
     existing = user_repo.find_by_firebase_uid(token_data['uid'])
     if existing:
         # If a specific non-PATIENT role is requested and current role differs, update it
@@ -80,11 +87,17 @@ def auto_register():
             return jsonify({'success': True, 'message': 'User role updated', 'user': updated})
         return jsonify({'success': True, 'message': 'User already exists', 'user': existing})
 
+    # New UID — check for email collision before creating
+    if email:
+        email_user = user_repo.find_by_email(email)
+        if email_user:
+            return jsonify({'success': False, 'message': 'Email already in use by another account'}), 409
+
     try:
         new_user = user_repo.create_user(
             firebase_uid=token_data['uid'],
-            email=token_data.get('email', ''),
-            name=data.get('name') or token_data.get('name') or token_data.get('email', 'User'),
+            email=email,
+            name=data.get('name') or token_data.get('name') or email or 'User',
             role=role,
         )
         return jsonify({'success': True, 'message': 'User created', 'user': new_user})
@@ -100,11 +113,17 @@ def get_profile():
 
     db_user = user_repo.find_by_firebase_uid(token_data['uid'])
     if not db_user:
+        email = token_data.get('email', '').lower()
+        if email:
+            email_user = user_repo.find_by_email(email)
+            if email_user:
+                return jsonify({'success': False, 'message': 'Email already in use by another account'}), 409
+
         try:
             db_user = user_repo.create_user(
                 firebase_uid=token_data['uid'],
-                email=token_data.get('email', ''),
-                name=token_data.get('name') or token_data.get('email', 'User'),
+                email=email,
+                name=token_data.get('name') or email or 'User',
                 role='PATIENT',
             )
         except Exception as e:
