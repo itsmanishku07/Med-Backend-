@@ -27,6 +27,7 @@ class MedicalReportRepository:
             'assigned_at': report.assigned_at.isoformat() if report.assigned_at else None,
             'reviewed_at': report.reviewed_at.isoformat() if report.reviewed_at else None,
             'is_archived': report.is_archived,
+            'doctor_edit_permission': report.doctor_edit_permission or False,
         }
 
     def create_report(self, patient_id: str, file_name: str, file_path: str,

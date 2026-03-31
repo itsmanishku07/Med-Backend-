@@ -86,6 +86,7 @@ class MedicalReport(Base):
     assigned_at = Column(DateTime, nullable=True)
     reviewed_at = Column(DateTime, nullable=True)
     is_archived = Column(Boolean, default=False, index=True)
+    doctor_edit_permission = Column(Boolean, default=False)
 
     patient = relationship('User', foreign_keys=[patient_id], back_populates='reports_as_patient')
     assigned_doctor = relationship('User', foreign_keys=[assigned_doctor_id], back_populates='reports_as_doctor')

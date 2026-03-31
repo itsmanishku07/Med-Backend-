@@ -444,6 +444,33 @@ def archive_report(report_id):
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
+@medical_bp.route('/<report_id>/doctor-edit-permission', methods=['PUT'])
+def set_doctor_edit_permission(report_id):
+    user, err = _require_auth()
+    if err:
+        return err
+
+    if user.get('role') != 'PATIENT':
+        return jsonify({'success': False, 'message': 'Only patients can grant/revoke doctor edit permission'}), 403
+
+    report = report_repo.find_by_id(report_id)
+    if not report:
+        return jsonify({'success': False, 'message': 'Report not found'}), 404
+
+    db_user = user_repo.find_by_firebase_uid(user['uid'])
+    if not db_user or report['patient_id'] != db_user['id']:
+        return jsonify({'success': False, 'message': 'Access denied'}), 403
+
+    data = request.get_json() or {}
+    allow = bool(data.get('allow', False))
+
+    try:
+        updated = report_repo.update_report(report_id, {'doctor_edit_permission': allow})
+        return jsonify({'success': True, 'message': 'Permission updated', 'report': updated})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 @medical_bp.route('/<report_id>/ai-analysis', methods=['PUT'])
 def update_ai_analysis(report_id):
     user, err = _require_auth()
@@ -462,6 +489,8 @@ def update_ai_analysis(report_id):
         return jsonify({'success': False, 'message': 'Access denied'}), 403
     if role == 'DOCTOR' and report['assigned_doctor_id'] != db_id:
         return jsonify({'success': False, 'message': 'Access denied'}), 403
+    if role == 'DOCTOR' and not report.get('doctor_edit_permission', False):
+        return jsonify({'success': False, 'message': 'Patient has not granted edit permission'}), 403
 
     data = request.get_json() or {}
     ai_analysis = data.get('ai_analysis')
