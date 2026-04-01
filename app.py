@@ -52,18 +52,26 @@ def create_app():
     from config.database import init_db
     init_db()
 
+    # Start medicine reminder push scheduler
+    from services.reminder_scheduler import start_scheduler
+    start_scheduler()
+
     # Register blueprints
     from routes.auth_routes import auth_bp
     from routes.medical_report_routes import medical_bp
     from routes.notification_routes import notification_bp
     from routes.chat_routes import chat_bp
     from routes.admin_routes import admin_bp
+    from routes.medicine_reminder_routes import reminder_bp
+    from routes.push_routes import push_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(medical_bp, url_prefix='/api/medical-reports')
     app.register_blueprint(notification_bp, url_prefix='/api/notifications')
     app.register_blueprint(chat_bp, url_prefix='/api/chats')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
+    app.register_blueprint(reminder_bp, url_prefix='/api/medicine-reminders')
+    app.register_blueprint(push_bp, url_prefix='/api/push')
 
     # Register SocketIO events
     from routes.chat_socket import register_socket_events

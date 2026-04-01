@@ -32,6 +32,7 @@ class NotificationType(enum.Enum):
     NEW_MESSAGE = "NEW_MESSAGE"
     SYSTEM_ALERT = "SYSTEM_ALERT"
     DOCTOR_ACCEPTED = "DOCTOR_ACCEPTED"
+    MEDICINE_REMINDER = "MEDICINE_REMINDER"
 
 
 class MessageType(enum.Enum):
@@ -142,3 +143,32 @@ class Notification(Base):
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
     user = relationship('User', back_populates='notifications')
+
+
+class MedicineReminder(Base):
+    __tablename__ = 'medicine_reminders'
+
+    id = Column(String(128), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String(128), ForeignKey('users.id'), index=True, nullable=False)
+    medicine_name = Column(String(255), nullable=False)
+    dosage = Column(String(100), nullable=True)
+    reminder_time = Column(String(5), nullable=False)   # "HH:MM" 24h format
+    days = Column(JSON, nullable=True)                  # ["Mon","Tue",...] or null = every day
+    is_active = Column(Boolean, default=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship('User', foreign_keys=[user_id])
+
+
+class PushSubscription(Base):
+    __tablename__ = 'push_subscriptions'
+
+    id = Column(String(128), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String(128), ForeignKey('users.id'), index=True, nullable=False)
+    endpoint = Column(Text, nullable=False, unique=True)
+    p256dh = Column(Text, nullable=False)
+    auth = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship('User', foreign_keys=[user_id])
