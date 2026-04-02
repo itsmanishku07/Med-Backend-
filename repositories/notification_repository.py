@@ -16,7 +16,7 @@ class NotificationRepository:
             'related_id': n.related_id,
             'data': n.data,
             'read': n.read,
-            'created_at': n.created_at.isoformat() if n.created_at else None,
+            'created_at': n.created_at.isoformat() + 'Z' if n.created_at else None,
         }
 
     def _resolve_user_db_id(self, user_id: str) -> str | None:

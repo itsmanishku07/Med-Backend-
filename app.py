@@ -15,6 +15,7 @@ def create_app():
     app = Flask(__name__)
     app.url_map.strict_slashes = False
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-me')
+    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB limit for profile pictures and reports
 
     cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:5173').split(',')
 
@@ -97,6 +98,10 @@ def create_app():
     @app.errorhandler(429)
     def ratelimit_handler(e):
         return jsonify({'success': False, 'message': f'Rate limit exceeded: {e.description}'}), 429
+
+    @app.errorhandler(413)
+    def request_entity_too_large(e):
+        return jsonify({'success': False, 'message': 'File is too large. Please select an image under 16MB.'}), 413
 
     @app.errorhandler(500)
     def internal_error(e):

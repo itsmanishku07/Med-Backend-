@@ -22,10 +22,10 @@ class MedicalReportRepository:
             'ai_analysis': report.ai_analysis,
             'doctor_notes': report.doctor_notes,
             'error_message': report.error_message,
-            'uploaded_at': report.uploaded_at.isoformat() if report.uploaded_at else None,
-            'analyzed_at': report.analyzed_at.isoformat() if report.analyzed_at else None,
-            'assigned_at': report.assigned_at.isoformat() if report.assigned_at else None,
-            'reviewed_at': report.reviewed_at.isoformat() if report.reviewed_at else None,
+            'uploaded_at': report.uploaded_at.isoformat() + 'Z' if report.uploaded_at else None,
+            'analyzed_at': report.analyzed_at.isoformat() + 'Z' if report.analyzed_at else None,
+            'assigned_at': report.assigned_at.isoformat() + 'Z' if report.assigned_at else None,
+            'reviewed_at': report.reviewed_at.isoformat() + 'Z' if report.reviewed_at else None,
             'is_archived': report.is_archived,
             'doctor_edit_permission': report.doctor_edit_permission or False,
             'extracted_text': report.extracted_text,
@@ -170,7 +170,7 @@ class MedicalReportRepository:
                 'report_id': msg.report_id,
                 'role': msg.role,
                 'content': msg.content,
-                'timestamp': msg.timestamp.isoformat()
+                'timestamp': msg.timestamp.isoformat() + 'Z'
             }
 
     def get_ai_chat_history(self, report_id: str) -> list[dict]:
@@ -185,5 +185,5 @@ class MedicalReportRepository:
                 'report_id': m.report_id,
                 'role': m.role,
                 'content': m.content,
-                'timestamp': m.timestamp.isoformat()
+                'timestamp': m.timestamp.isoformat() + 'Z'
             } for m in messages]

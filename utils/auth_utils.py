@@ -46,8 +46,14 @@ def get_current_user() -> dict | None:
             name=token_data.get('name', 'New Account')
         )
 
-    token_data['role'] = db_user.get('role', 'PATIENT')
-    token_data['db_id'] = db_user.get('id')
-    token_data['name'] = db_user.get('name', token_data.get('name', ''))
-    token_data['email'] = db_user.get('email', token_data.get('email', ''))
-    return token_data
+    # Merge token data with full DB user record
+    result = {**token_data, **db_user}
+    
+    # Ensure role is capitalized string for frontend consistency
+    if 'role' in result and hasattr(result['role'], 'value'):
+        result['role'] = result['role'].value
+    
+    # Preserve legacy key for compatibility with existing routes
+    result['db_id'] = db_user.get('id')
+    
+    return result

@@ -146,6 +146,10 @@ def update_profile():
         updates['phone'] = data['phone']
     if 'specializations' in data:
         updates['specializations'] = data['specializations']
+    if 'profile_picture' in data:
+        updates['profile_picture'] = data['profile_picture']
+    if 'profile' in data:
+        updates['profile'] = data['profile']
     # Allow role update via profile PUT (frontend doctor registration flow uses this)
     if 'role' in data:
         role = data['role'].upper()

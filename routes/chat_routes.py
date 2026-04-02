@@ -51,7 +51,6 @@ def get_or_create_chat(report_id):
     db_id = db_user['id']
     role = user.get('role', 'PATIENT')
 
-    # Access check
     if role == 'PATIENT' and report['patient_id'] != db_id:
         return jsonify({'success': False, 'message': 'Access denied'}), 403
     if role == 'DOCTOR' and report['assigned_doctor_id'] != db_id:
@@ -68,7 +67,6 @@ def get_or_create_chat(report_id):
                 doctor_id=report['assigned_doctor_id'],
             )
         except Exception:
-            # Race condition — fetch again
             chat = chat_repo.find_by_report_id(report_id)
             if not chat:
                 return jsonify({'success': False, 'message': 'Failed to create chat'}), 500
@@ -137,7 +135,6 @@ def send_message(chat_id):
             file_name=file_name,
         )
 
-        # Notify the other participant
         role = user.get('role', 'PATIENT')
         db_user = user_repo.find_by_firebase_uid(user['uid'])
         if role == 'PATIENT':
@@ -157,5 +154,25 @@ def send_message(chat_id):
             pass
 
         return jsonify({'success': True, 'message': msg})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@chat_bp.route('/<chat_id>', methods=['DELETE'])
+def delete_chat(chat_id):
+    user, err = _require_auth()
+    if err:
+        return err
+
+    chat = chat_repo.find_by_id(chat_id)
+    if not chat:
+        return jsonify({'success': False, 'message': 'Chat not found'}), 404
+
+    if not _can_access_chat(user, chat):
+        return jsonify({'success': False, 'message': 'Access denied'}), 403
+
+    try:
+        chat_repo.delete_chat(chat_id)
+        return jsonify({'success': True, 'message': 'Chat deleted'})
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500

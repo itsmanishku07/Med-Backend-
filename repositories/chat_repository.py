@@ -12,8 +12,8 @@ class ChatRepository:
             'report_id': chat.report_id,
             'patient_id': chat.patient_id,
             'doctor_id': chat.doctor_id,
-            'created_at': chat.created_at.isoformat() if chat.created_at else None,
-            'last_message_at': chat.last_message_at.isoformat() if chat.last_message_at else None,
+            'created_at': chat.created_at.isoformat() + 'Z' if chat.created_at else None,
+            'last_message_at': chat.last_message_at.isoformat() + 'Z' if chat.last_message_at else None,
         }
 
     def _message_to_dict(self, msg: ChatMessage) -> dict:
@@ -26,7 +26,7 @@ class ChatRepository:
             'content': msg.content,
             'image_data': msg.image_data,
             'file_name': msg.file_name,
-            'timestamp': msg.timestamp.isoformat() if msg.timestamp else None,
+            'timestamp': msg.timestamp.isoformat() + 'Z' if msg.timestamp else None,
             'read': msg.read,
         }
 
@@ -124,3 +124,14 @@ class ChatRepository:
                  .filter(ChatMessage.sender_role == UserRole.PATIENT)
                  .update({'read': True}))
             session.commit()
+
+    def delete_chat(self, chat_id: str) -> bool:
+        with SessionLocal() as session:
+            # Delete messages first (cascade may handle it, but explicit is safer)
+            session.query(ChatMessage).filter_by(chat_id=chat_id).delete()
+            chat = session.query(Chat).filter_by(id=chat_id).first()
+            if not chat:
+                return False
+            session.delete(chat)
+            session.commit()
+            return True

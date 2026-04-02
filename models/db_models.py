@@ -57,6 +57,8 @@ class User(Base):
     role = Column(SAEnum(UserRole), default=UserRole.PATIENT)
     phone = Column(String(20), nullable=True)
     specializations = Column(JSON, nullable=True)
+    profile_picture = Column(Text, nullable=True)
+    profile = Column(JSON, nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

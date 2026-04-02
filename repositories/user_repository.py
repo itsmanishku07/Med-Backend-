@@ -15,9 +15,11 @@ class UserRepository:
             'role': user.role.value if user.role else 'PATIENT',
             'phone': user.phone,
             'specializations': user.specializations or [],
+            'profile_picture': user.profile_picture,
+            'profile': user.profile or {},
             'is_active': user.is_active,
-            'created_at': user.created_at.isoformat() if user.created_at else None,
-            'updated_at': user.updated_at.isoformat() if user.updated_at else None,
+            'created_at': user.created_at.isoformat() + 'Z' if user.created_at else None,
+            'updated_at': user.updated_at.isoformat() + 'Z' if user.updated_at else None,
         }
 
     def find_by_firebase_uid(self, firebase_uid: str) -> dict | None:
@@ -37,7 +39,8 @@ class UserRepository:
             return self._to_dict(user) if user else None
 
     def create_user(self, firebase_uid: str, email: str, name: str,
-                    role: str = 'PATIENT', phone: str = None) -> dict:
+                    role: str = 'PATIENT', phone: str = None, 
+                    profile_picture: str = None, profile: dict = None) -> dict:
         with SessionLocal() as session:
             user = User(
                 id=str(uuid.uuid4()),
@@ -46,6 +49,8 @@ class UserRepository:
                 name=name,
                 role=UserRole[role],
                 phone=phone,
+                profile_picture=profile_picture,
+                profile=profile,
                 is_active=True,
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow(),
