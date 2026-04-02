@@ -21,5 +21,8 @@ Base = declarative_base()
 
 def init_db():
     """Create all tables."""
-    from models.db_models import User, MedicalReport, Chat, ChatMessage, Notification  # noqa: F401
+    from models.db_models import (
+        User, MedicalReport, Chat, ChatMessage,
+        Notification, MedicalReportAIChat, MedicineReminder, PushSubscription
+    )  # noqa: F401
     Base.metadata.create_all(bind=engine)

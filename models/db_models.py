@@ -88,6 +88,7 @@ class MedicalReport(Base):
     reviewed_at = Column(DateTime, nullable=True)
     is_archived = Column(Boolean, default=False, index=True)
     doctor_edit_permission = Column(Boolean, default=False)
+    extracted_text = Column(Text, nullable=True)
 
     patient = relationship('User', foreign_keys=[patient_id], back_populates='reports_as_patient')
     assigned_doctor = relationship('User', foreign_keys=[assigned_doctor_id], back_populates='reports_as_doctor')
@@ -172,3 +173,15 @@ class PushSubscription(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship('User', foreign_keys=[user_id])
+
+
+class MedicalReportAIChat(Base):
+    __tablename__ = 'medical_report_ai_chats'
+
+    id = Column(String(128), primary_key=True, default=lambda: str(uuid.uuid4()))
+    report_id = Column(String(128), ForeignKey('medical_reports.id'), index=True, nullable=False)
+    role = Column(String(50), nullable=False)  # 'user' or 'assistant'
+    content = Column(Text, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+
+    report = relationship('MedicalReport')

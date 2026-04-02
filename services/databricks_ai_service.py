@@ -73,3 +73,54 @@ class DatabricksAIService:
         result['analyzed_by'] = 'databricks'
         result['model_used'] = 'databricks-meta-llama-3-1-8b-instruct'
         return result
+
+    def answer_question_with_context(self, context: str, history: list[dict], question: str) -> str:
+        """
+        Call Databricks LLM to answer a question based on medical report context and chat history.
+        """
+        if not self.enabled:
+            raise RuntimeError("Databricks not configured")
+
+        system_prompt = (
+            "You are a helpful medical AI assistant. "
+            "You will be provided with the text of a medical report as context. "
+            "Answer the user's question accurately and concisely based ONLY on the provided context. "
+            "If the information is not in the report, state that clearly. "
+            "Always maintain a professional and empathetic tone. "
+            "Format your response using Markdown: use **bold** for key medical terms and unordered lists for multiple points to ensure professional readability."
+        )
+
+        messages = [{"role": "system", "content": system_prompt}]
+
+        # Add context as the first user message or a separator
+        messages.append({
+            "role": "user",
+            "content": f"CONTEXT (Medical Report Text):\n---\n{context}\n---\nAbove is the medical report context."
+        })
+
+        # Add history
+        for msg in history:
+            messages.append({
+                "role": msg['role'], # 'user' or 'assistant'
+                "content": msg['content']
+            })
+
+        # Add current question
+        messages.append({"role": "user", "content": question})
+
+        payload = {
+            "messages": messages,
+            "max_tokens": 1024,
+            "temperature": 0.2,
+        }
+
+        headers = {
+            "Authorization": f"Bearer {DATABRICKS_TOKEN}",
+            "Content-Type": "application/json",
+        }
+
+        response = requests.post(self.endpoint, json=payload, headers=headers, timeout=60)
+        response.raise_for_status()
+
+        data = response.json()
+        return data['choices'][0]['message']['content'].strip()

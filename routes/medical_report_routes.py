@@ -43,7 +43,7 @@ def _run_analysis_background(report_id: str, file_path: str, file_type: str,
             file_bytes = f.read()
 
         ai_service = MedicalAIService()
-        ai_analysis = ai_service.analyze_report(file_bytes, file_type)
+        ai_analysis, full_text = ai_service.analyze_report(file_bytes, file_type)
 
         # Doctor matching
         matching_service = DoctorMatchingService()
@@ -51,7 +51,7 @@ def _run_analysis_background(report_id: str, file_path: str, file_type: str,
         doctors = user_repo.get_all_doctors()
         suggested = matching_service.match_doctors_to_report(ai_analysis, specialty, doctors)
 
-        report_repo.update_ai_analysis(report_id, ai_analysis)
+        report_repo.update_ai_analysis(report_id, ai_analysis, full_text)
         report_repo.update_report(report_id, {
             'medical_specialty': specialty,
             'suggested_doctors': suggested,
@@ -313,14 +313,14 @@ def analyze_report(report_id):
             file_bytes = f.read()
 
         ai_service = MedicalAIService()
-        ai_analysis = ai_service.analyze_report(file_bytes, report['file_type'])
+        ai_analysis, full_text = ai_service.analyze_report(file_bytes, report['file_type'])
 
         matching_service = DoctorMatchingService()
         specialty = matching_service.detect_medical_specialty(ai_analysis)
         doctors = user_repo.get_all_doctors()
         suggested = matching_service.match_doctors_to_report(ai_analysis, specialty, doctors)
 
-        report_repo.update_ai_analysis(report_id, ai_analysis)
+        report_repo.update_ai_analysis(report_id, ai_analysis, full_text)
         updated = report_repo.update_report(report_id, {
             'medical_specialty': specialty,
             'suggested_doctors': suggested,
@@ -501,4 +501,75 @@ def update_ai_analysis(report_id):
         updated = report_repo.update_report(report_id, {'ai_analysis': ai_analysis})
         return jsonify({'success': True, 'message': 'AI analysis updated', 'report': updated})
     except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@medical_bp.route('/<report_id>/ai-chat', methods=['GET'])
+def get_ai_chat_history(report_id):
+    user, err = _require_auth()
+    if err: return err
+
+    report = report_repo.find_by_id(report_id)
+    if not report:
+        return jsonify({'success': False, 'message': 'Report not found'}), 404
+
+    # Authorization Check
+    db_user = user_repo.find_by_firebase_uid(user['uid'])
+    db_id = db_user['id'] if db_user else None
+    if user.get('role') == 'PATIENT' and report['patient_id'] != db_id:
+        return jsonify({'success': False, 'message': 'Access denied'}), 403
+
+    history = report_repo.get_ai_chat_history(report_id)
+    return jsonify({'success': True, 'history': history})
+
+
+@medical_bp.route('/<report_id>/ask', methods=['POST'])
+def ask_ai_question(report_id):
+    user, err = _require_auth()
+    if err: return err
+
+    data = request.get_json() or {}
+    question = data.get('question')
+    if not question:
+        return jsonify({'success': False, 'message': 'Question is required'}), 400
+
+    report = report_repo.find_by_id(report_id)
+    if not report:
+        return jsonify({'success': False, 'message': 'Report not found'}), 404
+
+    # Authorization Check
+    db_user = user_repo.find_by_firebase_uid(user['uid'])
+    db_id = db_user['id'] if db_user else None
+    if user.get('role') == 'PATIENT' and report['patient_id'] != db_id:
+        return jsonify({'success': False, 'message': 'Access denied'}), 403
+
+    try:
+        from services.medical_ai_service import MedicalAIService
+        ai_service = MedicalAIService()
+
+        # Get context
+        context = report.get('extracted_text') or ""
+        if not context and report.get('ai_analysis'):
+             # Fallback to summary if full text not available
+             context = report['ai_analysis'].get('summary', "")
+
+        # Get history
+        history = report_repo.get_ai_chat_history(report_id)
+
+        # Save user message
+        user_msg = report_repo.create_ai_chat_message(report_id, 'user', question)
+
+        # Get AI answer
+        answer = ai_service.ask_question_about_report(context, history, question)
+
+        # Save AI message
+        ai_msg = report_repo.create_ai_chat_message(report_id, 'assistant', answer)
+
+        return jsonify({
+            'success': True,
+            'question': user_msg,
+            'answer': ai_msg
+        })
+    except Exception as e:
+        logger.error(f"ask_ai_question error: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500

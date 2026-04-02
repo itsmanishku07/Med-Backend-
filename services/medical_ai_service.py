@@ -212,7 +212,7 @@ class MedicalAIService:
             "ocr_quality_warning": quality_score < 0.5,
             "ocr_quality_issues": quality_issues,
         }
-        return result
+        return result, text
 
     def _assess_ocr_quality(self, text: str) -> tuple[float, list[str]]:
         issues = []
@@ -445,3 +445,12 @@ class MedicalAIService:
             })
 
         return result
+
+    def ask_question_about_report(self, context: str, history: list[dict], question: str) -> str:
+        """
+        Answers a user question using context and history.
+        """
+        if self.databricks.enabled:
+            return self.databricks.answer_question_with_context(context, history, question)
+        
+        return "I'm sorry, AI analysis is currently unavailable to answer this question."

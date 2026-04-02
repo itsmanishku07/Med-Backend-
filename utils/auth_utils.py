@@ -38,6 +38,13 @@ def get_current_user() -> dict | None:
     repo = UserRepository()
     db_user = repo.find_by_firebase_uid(token_data['uid'])
 
+    if not db_user:
+        # Auto-create as PATIENT if token is valid but user not in DB yet
+        db_user = repo.create_user(
+            firebase_uid=token_data['uid'],
+            email=token_data.get('email', ''),
+            name=token_data.get('name', 'New Account')
+        )
 
     token_data['role'] = db_user.get('role', 'PATIENT')
     token_data['db_id'] = db_user.get('id')
