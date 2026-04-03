@@ -10,7 +10,8 @@ firebase-admin==6.5.0
 SQLAlchemy==2.0.48
 psycopg2-binary==2.9.11
 alembic==1.13.1
-Pillow==12.1.1
+# Pillow==12.1.1
+Pillow==11.3.0
 pytesseract==0.3.10
 pdfplumber==0.11.0
 PyPDF2==3.0.1
