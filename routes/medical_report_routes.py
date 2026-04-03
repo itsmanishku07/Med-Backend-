@@ -146,21 +146,33 @@ def stats():
     user, err = _require_auth()
     if err:
         return err
+
     try:
-        all_reports = report_repo.get_all_reports()
+        role = user.get('role')
+        uid = user.get('uid')
+
+        if role == 'PATIENT':
+            all_reports = report_repo.find_by_patient_id(uid)
+        elif role == 'DOCTOR':
+            all_reports = report_repo.find_by_doctor_id(uid)
+        else:
+            all_reports = report_repo.get_all_reports()
+
         total = len(all_reports)
         pending = sum(1 for r in all_reports if r.get('status') in ('PENDING', 'ANALYZING'))
         reviewed = sum(1 for r in all_reports if r.get('status') == 'REVIEWED')
         critical = sum(1 for r in all_reports
                        if r.get('ai_analysis') and
                        r['ai_analysis'].get('severity_level') == 'CRITICAL')
+
         return jsonify({'success': True, 'stats': {
             'totalReports': total,
             'pendingReports': pending,
             'reviewedReports': reviewed,
             'criticalAlerts': critical,
         }})
-    except Exception:
+    except Exception as e:
+        logger.error(f"stats error: {e}")
         return jsonify({'success': True, 'stats': {
             'totalReports': 0, 'pendingReports': 0,
             'reviewedReports': 0, 'criticalAlerts': 0,
