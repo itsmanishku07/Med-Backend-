@@ -335,7 +335,11 @@ def analyze_report(report_id):
              return jsonify({'success': False, 'message': 'Report binary not found in DB'}), 404
 
         ai_service = MedicalAIService()
-        ai_analysis, full_text = ai_service.analyze_report(file_bytes, report['file_type'])
+        ai_analysis, full_text = ai_service.analyze_report(
+            file_content=file_bytes, 
+            file_type=report['file_type'],
+            existing_text=report.get('extracted_text')
+        )
 
         matching_service = DoctorMatchingService()
         specialty = matching_service.detect_medical_specialty(ai_analysis)
@@ -582,7 +586,12 @@ def ask_ai_question(report_id):
         user_msg = report_repo.create_ai_chat_message(report_id, 'user', question)
 
         # Get AI answer
-        answer = ai_service.ask_question_about_report(context, history, question)
+        answer = ai_service.ask_question_about_report(
+            context=context,
+            analysis=report.get('ai_analysis'),
+            history=history,
+            question=question
+        )
 
         # Save AI message
         ai_msg = report_repo.create_ai_chat_message(report_id, 'assistant', answer)
