@@ -30,17 +30,14 @@ def _get_file_ext(filename: str) -> str:
     return filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
 
 
-def _run_analysis_background(report_id: str, file_path: str, file_type: str,
-                              patient_firebase_uid: str):
+def _run_analysis_background(report_id: str, file_bytes: bytes, file_type: str,
+                               patient_firebase_uid: str):
     """Background thread: analyze report and update DB."""
     from services.medical_ai_service import MedicalAIService
     from services.doctor_matching_service import DoctorMatchingService
 
     try:
         report_repo.update_report(report_id, {'status': 'ANALYZING'})
-
-        with open(file_path, 'rb') as f:
-            file_bytes = f.read()
 
         ai_service = MedicalAIService()
         ai_analysis, full_text = ai_service.analyze_report(file_bytes, file_type)
@@ -198,21 +195,18 @@ def upload_report():
     if not db_user:
         return jsonify({'success': False, 'message': 'User not found in database'}), 404
 
-    # Save file
-    upload_dir = os.path.join('uploads', user['uid'])
-    os.makedirs(upload_dir, exist_ok=True)
-    safe_filename = f"{uuid.uuid4()}_{file.filename}"
-    file_path = os.path.join(upload_dir, safe_filename)
-    file.save(file_path)
+    # Read binary content
+    file_bytes = file.read()
 
-    # Create report record
+    # Create report record with binary content
     try:
         report = report_repo.create_report(
             patient_id=db_user['id'],
             file_name=file.filename,
-            file_path=file_path,
+            file_path="DB_STORAGE",   # Placeholder or just keep empty
             file_type=ext,
             file_size=str(size),
+            file_content=file_bytes,
         )
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
@@ -220,12 +214,12 @@ def upload_report():
     # Start background analysis thread
     t = threading.Thread(
         target=_run_analysis_background,
-        args=(report['id'], file_path, ext, user['uid']),
+        args=(report['id'], file_bytes, ext, user['uid']),
         daemon=True,
     )
     t.start()
 
-    return jsonify({'success': True, 'message': 'Report uploaded. Analysis started.', 'report': report}), 201
+    return jsonify({'success': True, 'message': 'Report uploaded to database. Analysis started.', 'report': report}), 201
 
 
 @medical_bp.route('/<report_id>', methods=['GET'])
@@ -270,15 +264,45 @@ def delete_report(report_id):
     if role == 'DOCTOR':
         return jsonify({'success': False, 'message': 'Doctors cannot delete reports'}), 403
 
-    # Delete file from disk
-    try:
-        if os.path.exists(report['file_path']):
-            os.remove(report['file_path'])
-    except Exception:
-        pass
-
     report_repo.delete_report(report_id)
-    return jsonify({'success': True, 'message': 'Report deleted'})
+    return jsonify({'success': True, 'message': 'Report deleted from database'})
+
+@medical_bp.route('/<report_id>/file', methods=['GET'])
+def get_report_file(report_id):
+    """Serve the original report file from the database."""
+    user, err = _require_auth()
+    if err: return err
+
+    report = report_repo.find_by_id(report_id)
+    if not report:
+        return jsonify({'success': False, 'message': 'Report not found'}), 404
+
+    # Authorization Check
+    db_user = user_repo.find_by_firebase_uid(user['uid'])
+    db_id = db_user['id'] if db_user else None
+    role = user.get('role', 'PATIENT')
+    
+    if role == 'PATIENT' and report['patient_id'] != db_id:
+        return jsonify({'success': False, 'message': 'Access denied'}), 403
+    
+    import io
+    from flask import send_file
+    
+    content = report_repo.get_file_content(report_id)
+    if not content:
+        return jsonify({'success': False, 'message': 'File content not found'}), 404
+        
+    # Guess mime type
+    mime = 'application/pdf'
+    if report['file_type'] in ('jpg', 'jpeg'): mime = 'image/jpeg'
+    elif report['file_type'] == 'png': mime = 'image/png'
+    
+    return send_file(
+        io.BytesIO(content),
+        mimetype=mime,
+        download_name=report['file_name'],
+        as_attachment=False
+    )
 
 
 @medical_bp.route('/<report_id>/analyze', methods=['POST'])
@@ -300,17 +324,15 @@ def analyze_report(report_id):
     if role == 'DOCTOR' and report['assigned_doctor_id'] != db_id:
         return jsonify({'success': False, 'message': 'Access denied'}), 403
 
-    if not os.path.exists(report['file_path']):
-        return jsonify({'success': False, 'message': 'Report file not found on disk'}), 404
-
     try:
         from services.medical_ai_service import MedicalAIService
         from services.doctor_matching_service import DoctorMatchingService
 
         report_repo.update_report(report_id, {'status': 'ANALYZING'})
 
-        with open(report['file_path'], 'rb') as f:
-            file_bytes = f.read()
+        file_bytes = report_repo.get_file_content(report_id)
+        if not file_bytes:
+             return jsonify({'success': False, 'message': 'Report binary not found in DB'}), 404
 
         ai_service = MedicalAIService()
         ai_analysis, full_text = ai_service.analyze_report(file_bytes, report['file_type'])

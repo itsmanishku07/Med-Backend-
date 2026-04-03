@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from sqlalchemy import (
     Column, String, Boolean, DateTime, Text, JSON,
-    Enum as SAEnum, ForeignKey, UniqueConstraint
+    Enum as SAEnum, ForeignKey, UniqueConstraint, LargeBinary
 )
 from sqlalchemy.orm import relationship
 import enum
@@ -91,6 +91,7 @@ class MedicalReport(Base):
     is_archived = Column(Boolean, default=False, index=True)
     doctor_edit_permission = Column(Boolean, default=False)
     extracted_text = Column(Text, nullable=True)
+    file_content = Column(LargeBinary, nullable=True)
 
     patient = relationship('User', foreign_keys=[patient_id], back_populates='reports_as_patient')
     assigned_doctor = relationship('User', foreign_keys=[assigned_doctor_id], back_populates='reports_as_doctor')

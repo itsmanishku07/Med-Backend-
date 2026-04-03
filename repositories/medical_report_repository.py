@@ -32,7 +32,7 @@ class MedicalReportRepository:
         }
 
     def create_report(self, patient_id: str, file_name: str, file_path: str,
-                      file_type: str, file_size: str) -> dict:
+                      file_type: str, file_size: str, file_content: bytes = None) -> dict:
         with SessionLocal() as session:
             report = MedicalReport(
                 id=str(uuid.uuid4()),
@@ -41,6 +41,7 @@ class MedicalReportRepository:
                 file_path=file_path,
                 file_type=file_type,
                 file_size=file_size,
+                file_content=file_content,
                 status=ReportStatus.PENDING,
                 uploaded_at=datetime.utcnow(),
             )
@@ -150,6 +151,11 @@ class MedicalReportRepository:
             session.delete(report)
             session.commit()
             return True
+
+    def get_file_content(self, report_id: str) -> bytes | None:
+        with SessionLocal() as session:
+            report = session.query(MedicalReport).filter_by(id=report_id).first()
+            return report.file_content if report else None
 
     # ── AI Chat methods ──────────────────────────────────────────────────
     def create_ai_chat_message(self, report_id: str, role: str, content: str) -> dict:
