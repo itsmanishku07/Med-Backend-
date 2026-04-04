@@ -561,6 +561,28 @@ def get_ai_chat_history(report_id):
     return jsonify({'success': True, 'history': history})
 
 
+@medical_bp.route('/<report_id>/ai-chat', methods=['DELETE'])
+def delete_ai_chat_history(report_id):
+    user, err = _require_auth()
+    if err: return err
+
+    report = report_repo.find_by_id(report_id)
+    if not report:
+        return jsonify({'success': False, 'message': 'Report not found'}), 404
+
+    # Authorization Check
+    db_user = user_repo.find_by_firebase_uid(user['uid'])
+    db_id = db_user['id'] if db_user else None
+    if user.get('role') == 'PATIENT' and report['patient_id'] != db_id:
+        return jsonify({'success': False, 'message': 'Access denied'}), 403
+
+    success = report_repo.delete_ai_chat_history(report_id)
+    if success:
+        return jsonify({'success': True, 'message': 'AI chat history cleared'})
+    else:
+        return jsonify({'success': False, 'message': 'Failed to clear chat history'}), 500
+
+
 @medical_bp.route('/<report_id>/ask', methods=['POST'])
 def ask_ai_question(report_id):
     user, err = _require_auth()
