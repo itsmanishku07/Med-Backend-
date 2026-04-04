@@ -5,7 +5,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv('DATABASE_URL', 'postgresql+psycopg2://user:password@localhost:5432/medical_db')
+DATABASE_URL = os.getenv('DATABASE_URL')
+if not DATABASE_URL:
+    print("WARNING: DATABASE_URL not set! Defaulting to local (will fail in serverless).")
+    DATABASE_URL = 'postgresql+psycopg2://user:password@localhost:5432/medical_db'
 
 engine = create_engine(
     DATABASE_URL,

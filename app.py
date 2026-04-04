@@ -11,7 +11,9 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 
+
 def create_app():
+    is_vercel = os.getenv('VERCEL') == '1'
     app = Flask(__name__)
     app.url_map.strict_slashes = False
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-me')
@@ -53,9 +55,14 @@ def create_app():
     from config.database import init_db
     init_db()
 
-    # Start medicine reminder push scheduler
-    from services.reminder_scheduler import start_scheduler
-    start_scheduler()
+
+    # Start medicine reminder push scheduler (Disable on Vercel/Serverless)
+    if not is_vercel:
+        try:
+            from services.reminder_scheduler import start_scheduler
+            start_scheduler()
+        except Exception as e:
+            app.logger.error(f"Failed to start scheduler: {e}")
 
     # Register blueprints
     from routes.auth_routes import auth_bp
