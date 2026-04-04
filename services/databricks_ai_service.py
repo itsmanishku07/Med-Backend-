@@ -11,10 +11,15 @@ logger = logging.getLogger(__name__)
 
 DATABRICKS_TOKEN = os.getenv('DATABRICKS_TOKEN', '')
 DATABRICKS_API_URL = os.getenv('DATABRICKS_API_URL', '')
-# Default to a vision model if not specified
+# Default model (text-only)
 DATABRICKS_MODEL_ENDPOINT = os.getenv(
     'DATABRICKS_MODEL_ENDPOINT',
     '/serving-endpoints/databricks-meta-llama-3-1-8b-instruct/invocations'
+)
+# Specific Vision model (Optional fallback for images)
+DATABRICKS_VISION_MODEL_ENDPOINT = os.getenv(
+    'DATABRICKS_VISION_MODEL_ENDPOINT',
+    DATABRICKS_MODEL_ENDPOINT
 )
 
 class DatabricksAIService:
@@ -22,7 +27,7 @@ class DatabricksAIService:
 
     def __init__(self):
         self.enabled = bool(DATABRICKS_TOKEN and DATABRICKS_API_URL)
-        self.endpoint = DATABRICKS_API_URL.rstrip('/') + DATABRICKS_MODEL_ENDPOINT
+        self.base_url = DATABRICKS_API_URL.rstrip('/')
 
     def analyze_medical_report(self, file_content: bytes, file_type: str, extracted_text: str = None) -> dict:
         """
@@ -85,8 +90,22 @@ class DatabricksAIService:
             "Content-Type": "application/json",
         }
 
+        # Select endpoint based on mode
+        endpoint_path = DATABRICKS_MODEL_ENDPOINT if extracted_text else DATABRICKS_VISION_MODEL_ENDPOINT
+        current_endpoint = self.base_url + endpoint_path
+
+        if not extracted_text and "llama-3-1" in endpoint_path:
+             logger.warning(f"CAUTION: Sending VISION payload to what looks like a text-only model ({endpoint_path}). This may fail with 400 Bad Request.")
+
         try:
-            response = requests.post(self.endpoint, json=payload, headers=headers, timeout=90)
+            response = requests.post(current_endpoint, json=payload, headers=headers, timeout=90)
+            
+            if response.status_code == 400:
+                error_msg = response.text
+                if not extracted_text and "invalid" in error_msg.lower():
+                    logger.error(f"Incompatible Model Error: The current model ({endpoint_path}) failed to process an image. Update DATABRICKS_VISION_MODEL_ENDPOINT to a vision model.")
+                raise ValueError(f"Databricks API Error (400): {error_msg}")
+                
             response.raise_for_status()
 
             data = response.json()
@@ -108,7 +127,7 @@ class DatabricksAIService:
                 raise ValueError(f"AI returned invalid JSON: {str(je)}")
 
             result['analyzed_by'] = 'databricks'
-            result['model_used'] = DATABRICKS_MODEL_ENDPOINT
+            result['model_used'] = endpoint_path
             return result
         except Exception as e:
             logger.error(f"Databricks analysis failed: {e}")

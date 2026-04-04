@@ -43,6 +43,12 @@ class MedicalAIService:
                 try:
                     from PIL import Image
                     import pytesseract
+                    import shutil
+                    
+                    # Proactively check if tesseract is available
+                    if not shutil.which("tesseract"):
+                        logger.warning("tesseract binary not found in PATH.")
+                        raise EnvironmentError("Tesseract OCR engine is not installed on this system.")
                     
                     img = Image.open(io.BytesIO(file_content))
                     # Perform OCR
@@ -50,7 +56,7 @@ class MedicalAIService:
                     final_text = clean_medical_text(raw_text)
                     logger.info(f"Image OCR extraction success. Length: {len(final_text)}")
                 except Exception as e:
-                    logger.warning(f"Local Image OCR failed: {e}. AI will attempt Cloud Vision.")
+                    logger.warning(f"Local Image OCR failed: {e}. AI will attempt Cloud Vision fallback.")
 
         try:
             # 2. AI Analysis (Uses Text Mode if final_text exists, else Vision Mode)
