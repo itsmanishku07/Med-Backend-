@@ -233,3 +233,49 @@ class PendingRegistration(Base):
     token = Column(String(500), unique=True, index=True, nullable=False)
     expires_at = Column(DateTime, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class DoctorAvailabilitySlot(Base):
+    __tablename__ = 'doctor_availability_slots'
+
+    id = Column(String(128), primary_key=True, default=lambda: str(uuid.uuid4()))
+    doctor_id = Column(String(128), ForeignKey('users.id'), index=True, nullable=False)
+    day_of_week = Column(String(20), nullable=False)  # Monday, Tuesday, etc.
+    start_time = Column(String(5), nullable=False)    # HH:MM format (24h)
+    end_time = Column(String(5), nullable=False)      # HH:MM format (24h)
+    max_appointments = Column(String(10), default='10')
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    doctor = relationship('User', foreign_keys=[doctor_id])
+
+
+class DoctorBlockedDate(Base):
+    __tablename__ = 'doctor_blocked_dates'
+
+    id = Column(String(128), primary_key=True, default=lambda: str(uuid.uuid4()))
+    doctor_id = Column(String(128), ForeignKey('users.id'), index=True, nullable=False)
+    date = Column(DateTime, nullable=False, index=True)  # Specific date to block
+    reason = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    doctor = relationship('User', foreign_keys=[doctor_id])
+
+
+class DoctorReview(Base):
+    __tablename__ = 'doctor_reviews'
+
+    id = Column(String(128), primary_key=True, default=lambda: str(uuid.uuid4()))
+    doctor_id = Column(String(128), ForeignKey('users.id'), index=True, nullable=False)
+    patient_id = Column(String(128), ForeignKey('users.id'), index=True, nullable=False)
+    rating = Column(String(10), nullable=False)  # 1-5 stars
+    comment = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    doctor = relationship('User', foreign_keys=[doctor_id])
+    patient = relationship('User', foreign_keys=[patient_id])
+    
+    __table_args__ = (
+        UniqueConstraint('doctor_id', 'patient_id', name='uq_doctor_patient_review'),
+    )

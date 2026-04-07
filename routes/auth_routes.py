@@ -189,6 +189,20 @@ def validate():
     return jsonify({'valid': True, 'uid': user['uid'], 'email': user['email'], 'role': user['role']})
 
 
+@auth_bp.route('/doctors', methods=['GET'])
+def get_doctors():
+    """Get list of all doctors for patients to view"""
+    user, err = _require_auth()
+    if err:
+        return err
+    
+    try:
+        doctors = user_repo.get_all_doctors()
+        return jsonify({'success': True, 'doctors': doctors})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 @auth_bp.route('/signup/request', methods=['POST'])
 def signup_request():
     data = request.get_json() or {}

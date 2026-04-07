@@ -24,6 +24,6 @@ def init_db():
     from models.db_models import (
         User, MedicalReport, Chat, ChatMessage,
         Notification, MedicalReportAIChat, MedicineReminder, PushSubscription,
-        Appointment
+        Appointment, DoctorAvailabilitySlot, DoctorBlockedDate, DoctorReview
     )  # noqa: F401
     Base.metadata.create_all(bind=engine)

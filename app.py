@@ -66,6 +66,8 @@ def create_app():
     from routes.medicine_reminder_routes import reminder_bp
     from routes.push_routes import push_bp
     from routes.appointment_routes import appointment_bp
+    from routes.availability_routes import availability_bp
+    from routes.review_routes import review_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(medical_bp, url_prefix='/api/medical-reports')
@@ -75,6 +77,8 @@ def create_app():
     app.register_blueprint(reminder_bp, url_prefix='/api/medicine-reminders')
     app.register_blueprint(push_bp, url_prefix='/api/push')
     app.register_blueprint(appointment_bp, url_prefix='/api/appointments')
+    app.register_blueprint(availability_bp, url_prefix='/api/availability')
+    app.register_blueprint(review_bp, url_prefix='/api/reviews')
 
     # Register SocketIO events
     from routes.chat_socket import register_socket_events
