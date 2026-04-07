@@ -17,6 +17,11 @@ def create_app():
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-me')
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB limit for profile pictures and reports
 
+    # Initialize logger first
+    from utils.logger import app_logger, logger, log_info
+    app_logger._initialize_logger()
+    log_info("Application starting", {"port": os.getenv('PORT', 8081)})
+
     cors_origins = os.getenv('CORS_ORIGINS', 'http://localhost:5173').split(',')
 
     CORS(
@@ -45,6 +50,49 @@ def create_app():
         manage_session=False,   # we use Firebase tokens, not Flask sessions
     )
 
+    # Add request/response logging middleware
+    @app.before_request
+    def log_request_info():
+        from flask import request, g
+        import time
+        g.start_time = time.time()
+        
+        if app_logger.is_file_logging_enabled():
+            from utils.auth_utils import get_current_user
+            user = get_current_user()
+            
+            request_data = {
+                'method': request.method,
+                'path': request.path,
+                'ip': request.remote_addr,
+                'user_agent': request.headers.get('User-Agent', 'Unknown')[:100]
+            }
+            
+            if user:
+                request_data['user_id'] = user.get('uid')
+                request_data['user_email'] = user.get('email')
+            
+            logger.info(f"REQUEST: {request_data}")
+    
+    @app.after_request
+    def log_response_info(response):
+        from flask import request, g
+        import time
+        
+        if app_logger.is_file_logging_enabled() and hasattr(g, 'start_time'):
+            duration = time.time() - g.start_time
+            
+            response_data = {
+                'method': request.method,
+                'path': request.path,
+                'status_code': response.status_code,
+                'duration_ms': round(duration * 1000, 2)
+            }
+            
+            logger.info(f"RESPONSE: {response_data}")
+        
+        return response
+
     # Initialize Firebase Admin SDK
     from config.firebase_config import init_firebase
     init_firebase()
@@ -68,6 +116,7 @@ def create_app():
     from routes.appointment_routes import appointment_bp
     from routes.availability_routes import availability_bp
     from routes.review_routes import review_bp
+    from routes.logs_routes import logs_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(medical_bp, url_prefix='/api/medical-reports')
@@ -78,6 +127,7 @@ def create_app():
     app.register_blueprint(push_bp, url_prefix='/api/push')
     app.register_blueprint(appointment_bp, url_prefix='/api/appointments')
     app.register_blueprint(availability_bp, url_prefix='/api/availability')
+    app.register_blueprint(logs_bp, url_prefix='/api/logs')
     app.register_blueprint(review_bp, url_prefix='/api/reviews')
 
     # Register SocketIO events
@@ -111,6 +161,9 @@ def create_app():
 
     @app.errorhandler(500)
     def internal_error(e):
+        if app_logger.is_file_logging_enabled():
+            from utils.logger import log_error
+            log_error(e, context={'path': request.path if 'request' in dir() else 'unknown'})
         return jsonify({'success': False, 'message': 'Internal server error'}), 500
 
     @app.route('/api/health')
