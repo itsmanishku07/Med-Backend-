@@ -24,6 +24,14 @@ class ReportStatus(enum.Enum):
     FAILED = "FAILED"
 
 
+class AppointmentStatus(enum.Enum):
+    PENDING = "PENDING"
+    ACCEPTED = "ACCEPTED"
+    REJECTED = "REJECTED"
+    CANCELLED = "CANCELLED"
+    COMPLETED = "COMPLETED"
+
+
 class NotificationType(enum.Enum):
     REPORT_UPLOADED = "REPORT_UPLOADED"
     REPORT_ANALYZED = "REPORT_ANALYZED"
@@ -33,6 +41,8 @@ class NotificationType(enum.Enum):
     SYSTEM_ALERT = "SYSTEM_ALERT"
     DOCTOR_ACCEPTED = "DOCTOR_ACCEPTED"
     MEDICINE_REMINDER = "MEDICINE_REMINDER"
+    APPOINTMENT_REQUESTED = "APPOINTMENT_REQUESTED"
+    APPOINTMENT_ACCEPTED = "APPOINTMENT_ACCEPTED"
 
 
 class MessageType(enum.Enum):
@@ -66,6 +76,8 @@ class User(Base):
     reports_as_patient = relationship('MedicalReport', foreign_keys='MedicalReport.patient_id', back_populates='patient')
     reports_as_doctor = relationship('MedicalReport', foreign_keys='MedicalReport.assigned_doctor_id', back_populates='assigned_doctor')
     notifications = relationship('Notification', back_populates='user')
+    appointments_as_patient = relationship('Appointment', foreign_keys='Appointment.patient_id', back_populates='patient')
+    appointments_as_doctor = relationship('Appointment', foreign_keys='Appointment.doctor_id', back_populates='doctor')
 
 
 class MedicalReport(Base):
@@ -160,6 +172,7 @@ class MedicineReminder(Base):
     days = Column(JSON, nullable=True)                  # ["Mon","Tue",...] or null = every day
     is_active = Column(Boolean, default=True)
     notes = Column(Text, nullable=True)
+    ai_info = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship('User', foreign_keys=[user_id])
@@ -188,3 +201,35 @@ class MedicalReportAIChat(Base):
     timestamp = Column(DateTime, default=datetime.utcnow, index=True)
 
     report = relationship('MedicalReport')
+
+
+class Appointment(Base):
+    __tablename__ = 'appointments'
+
+    id = Column(String(128), primary_key=True, default=lambda: str(uuid.uuid4()))
+    patient_id = Column(String(128), ForeignKey('users.id'), index=True, nullable=False)
+    doctor_id = Column(String(128), ForeignKey('users.id'), index=True, nullable=False)
+    status = Column(SAEnum(AppointmentStatus), default=AppointmentStatus.PENDING, index=True)
+    requested_at = Column(DateTime, default=datetime.utcnow)
+    preferred_time = Column(DateTime, nullable=True) # Suggested by patient
+    scheduled_at = Column(DateTime, nullable=True)  # Set by doctor upon acceptance
+    notes = Column(Text, nullable=True)              # Patient's message
+    doctor_notes = Column(Text, nullable=True)       # Doctor's response
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    patient = relationship('User', foreign_keys=[patient_id], back_populates='appointments_as_patient')
+    doctor = relationship('User', foreign_keys=[doctor_id], back_populates='appointments_as_doctor')
+
+
+class PendingRegistration(Base):
+    __tablename__ = 'pending_registrations'
+
+    id = Column(String(128), primary_key=True, default=lambda: str(uuid.uuid4()))
+    email = Column(String(255), unique=True, index=True, nullable=False)
+    password_encrypted = Column(Text, nullable=False)
+    name = Column(String(255), nullable=False)
+    role = Column(SAEnum(UserRole), nullable=False)
+    token = Column(String(500), unique=True, index=True, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)

@@ -231,7 +231,30 @@ def upload_report():
     )
     t.start()
 
-    return jsonify({'success': True, 'message': 'Report uploaded to database. Analysis started.', 'report': report}), 201
+    return jsonify({'success': True, 'message': 'Report uploaded. Analysis started.', 'report': report}), 201
+
+
+@medical_bp.route('/medicine-info', methods=['GET'])
+def get_generic_medicine_info():
+    """Fetch medicine info by name (generic)."""
+    user, err = _require_auth()
+    if err:
+        return err
+
+    name = request.args.get('name')
+    if not name:
+        return jsonify({'success': False, 'message': 'Medicine name is required'}), 400
+
+    try:
+        from services.databricks_ai_service import DatabricksAIService
+        ai_service = DatabricksAIService()
+        
+        info = ai_service.get_medicine_info(name)
+        return jsonify({'success': True, 'ai_info': info})
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Error fetching generic medicine info: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 
 @medical_bp.route('/<report_id>', methods=['GET'])

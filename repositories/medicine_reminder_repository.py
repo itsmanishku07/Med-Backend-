@@ -16,6 +16,7 @@ class MedicineReminderRepository:
             'days': r.days,
             'is_active': r.is_active,
             'notes': r.notes,
+            'ai_info': r.ai_info,
             'created_at': r.created_at.isoformat() if r.created_at else None,
         }
 
@@ -83,3 +84,19 @@ class MedicineReminderRepository:
             session.delete(r)
             session.commit()
             return True
+
+    def find_by_id(self, reminder_id: str, user_id: str) -> dict | None:
+        db_id = self._resolve_db_id(user_id)
+        with SessionLocal() as session:
+            r = session.query(MedicineReminder).filter_by(id=reminder_id, user_id=db_id).first()
+            return self._to_dict(r) if r else None
+
+    def update_ai_info(self, reminder_id: str, ai_info: dict) -> dict | None:
+        with SessionLocal() as session:
+            r = session.query(MedicineReminder).filter_by(id=reminder_id).first()
+            if not r:
+                return None
+            r.ai_info = ai_info
+            session.commit()
+            session.refresh(r)
+            return self._to_dict(r)

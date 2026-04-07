@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 from config.database import SessionLocal
-from models.db_models import User, UserRole
+from models.db_models import User, UserRole, PendingRegistration
 
 
 class UserRepository:
@@ -12,7 +12,7 @@ class UserRepository:
             'firebase_uid': user.firebase_uid,
             'email': user.email,
             'name': user.name,
-            'role': user.role.value if user.role else 'PATIENT',
+            'role': user.role.name if user.role else 'PATIENT',
             'phone': user.phone,
             'specializations': user.specializations or [],
             'profile_picture': user.profile_picture,
@@ -21,6 +21,35 @@ class UserRepository:
             'created_at': user.created_at.isoformat() + 'Z' if user.created_at else None,
             'updated_at': user.updated_at.isoformat() + 'Z' if user.updated_at else None,
         }
+
+    # ... existing methods ...
+
+    def create_pending_registration(self, email: str, password_encrypted: str, name: str, role: str, token: str, expires_at: datetime) -> PendingRegistration:
+        with SessionLocal() as session:
+            pending = PendingRegistration(
+                id=str(uuid.uuid4()),
+                email=email.lower(),
+                password_encrypted=password_encrypted,
+                name=name,
+                role=UserRole[role.upper()],
+                token=token,
+                expires_at=expires_at,
+                created_at=datetime.utcnow()
+            )
+            session.add(pending)
+            session.commit()
+            return pending
+
+    def find_pending_by_token(self, token: str) -> PendingRegistration | None:
+        with SessionLocal() as session:
+            return session.query(PendingRegistration).filter_by(token=token).first()
+
+    def delete_pending_registration(self, pending_id: str):
+        with SessionLocal() as session:
+            pending = session.query(PendingRegistration).filter_by(id=pending_id).first()
+            if pending:
+                session.delete(pending)
+                session.commit()
 
     def find_by_firebase_uid(self, firebase_uid: str) -> dict | None:
         with SessionLocal() as session:

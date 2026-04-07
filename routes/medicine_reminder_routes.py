@@ -77,3 +77,34 @@ def delete_reminder(reminder_id):
     if not deleted:
         return jsonify({'success': False, 'message': 'Reminder not found'}), 404
     return jsonify({'success': True, 'message': 'Reminder deleted'})
+
+
+@reminder_bp.route('/<reminder_id>/info', methods=['GET'])
+def get_medicine_info(reminder_id):
+    user, err = _require_auth()
+    if err:
+        return err
+
+    reminder = reminder_repo.find_by_id(reminder_id, user['uid'])
+    if not reminder:
+        return jsonify({'success': False, 'message': 'Reminder not found'}), 404
+
+    # If AI info already exists, return it (caching)
+    if reminder.get('ai_info'):
+        return jsonify({'success': True, 'ai_info': reminder['ai_info']})
+
+    # Otherwise, generate it using AI
+    try:
+        from services.databricks_ai_service import DatabricksAIService
+        ai_service = DatabricksAIService()
+        
+        info = ai_service.get_medicine_info(reminder['medicine_name'])
+        
+        # Save to DB
+        updated = reminder_repo.update_ai_info(reminder_id, info)
+        
+        return jsonify({'success': True, 'ai_info': info})
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Error generating medicine info: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500

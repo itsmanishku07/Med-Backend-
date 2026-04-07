@@ -165,3 +165,66 @@ class DatabricksAIService:
         except Exception as e:
             logger.error(f"Databricks answer failed: {e}")
             return f"I'm sorry, I encountered an error while processing your request: {str(e)}"
+
+    def get_medicine_info(self, medicine_name: str) -> dict:
+        """
+        Fetch detailed information about a medicine using AI.
+        """
+        if not self.enabled:
+            raise RuntimeError("Databricks not configured.")
+
+        system_prompt = (
+            "You are a helpful Medical Assistant. "
+            "Your task is to provide extremely simple, easy-to-understand information about medicines for regular patients. "
+            "AVOID medical jargon. Use plain English that a 10-year-old could understand. "
+            "Return a JSON object that strictly follows the specified schema."
+        )
+
+        json_schema = {
+            "medicine_name": medicine_name,
+            "benefits": ["Simple benefit 1", "Simple benefit 2"],
+            "side_effects": ["Simple side effect 1", "Simple side effect 2"],
+            "dosage_timing": "Simple timing (e.g., Every morning after you eat)",
+            "when_to_avoid": ["Simple warning 1", "Simple warning 2"],
+            "professional_summary": "A very simple explanation of what this medicine does."
+        }
+
+        user_content = (
+            f"Explain this medicine in very simple words: **{medicine_name}**\n"
+            f"Format it as JSON: {json.dumps(json_schema)}\n"
+            "Use only common words. No complex medical terms. Respond with ONLY the JSON object."
+        )
+
+        payload = {
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content},
+            ],
+            "max_tokens": 2048,
+            "temperature": 0.1,
+        }
+
+        headers = {
+            "Authorization": f"Bearer {DATABRICKS_TOKEN}",
+            "Content-Type": "application/json",
+        }
+
+        try:
+            response = requests.post(self.endpoint, json=payload, headers=headers, timeout=60)
+            response.raise_for_status()
+
+            data = response.json()
+            content = data['choices'][0]['message']['content']
+            
+            # Robust JSON scraper
+            start_idx = content.find('{')
+            end_idx = content.rfind('}')
+            if start_idx != -1 and end_idx != -1:
+                json_str = content[start_idx : end_idx + 1].strip()
+            else:
+                json_str = content.strip()
+
+            return json.loads(json_str)
+        except Exception as e:
+            logger.error(f"Failed to get medicine info for {medicine_name}: {e}")
+            raise

@@ -39,10 +39,19 @@ def get_current_user() -> dict | None:
     db_user = repo.find_by_firebase_uid(token_data['uid'])
 
     if not db_user:
-        # Auto-create as PATIENT if token is valid but user not in DB yet
+        # Check if user exists with the same email but different UID
+        email = token_data.get('email', '').lower()
+        if email:
+            email_user = repo.find_by_email(email)
+            if email_user:
+                # Sync UID - user exists with this email but we didn't know their UID or it changed
+                db_user = repo.update_user(email_user['id'], {'firebase_uid': token_data['uid']})
+    
+    if not db_user:
+        # Still not found? Auto-create as PATIENT
         db_user = repo.create_user(
             firebase_uid=token_data['uid'],
-            email=token_data.get('email', ''),
+            email=token_data.get('email', '') or '',
             name=token_data.get('name', 'New Account')
         )
 
