@@ -171,11 +171,13 @@ def get_log_settings():
         return err
     
     enabled = os.getenv('ENABLE_FILE_LOGGING', 'false').lower() == 'true'
+    console_enabled = os.getenv('ENABLE_CONSOLE_LOGGING', 'true').lower() == 'true'
     
     return jsonify({
         'success': True,
         'settings': {
             'enabled': enabled,
+            'console_enabled': console_enabled,
             'log_level': os.getenv('LOG_LEVEL', 'INFO'),
             'log_file_path': os.getenv('LOG_FILE_PATH', 'logs/app.log')
         }
@@ -194,36 +196,50 @@ def update_log_settings():
         return err
     
     data = request.get_json()
-    enabled = data.get('enabled', False)
+    enabled = data.get('enabled')
+    console_enabled = data.get('console_enabled')
     
     try:
         from dotenv import set_key
         
         env_file_path = '.env'
         
-        # Update the setting using dotenv's set_key function
-        set_key(env_file_path, 'ENABLE_FILE_LOGGING', 'true' if enabled else 'false')
+        # Update file logging if provided
+        if enabled is not None:
+            set_key(env_file_path, 'ENABLE_FILE_LOGGING', 'true' if enabled else 'false')
+            os.environ['ENABLE_FILE_LOGGING'] = 'true' if enabled else 'false'
         
-        # Update the environment variable for current process
-        os.environ['ENABLE_FILE_LOGGING'] = 'true' if enabled else 'false'
+        # Update console logging if provided
+        if console_enabled is not None:
+            set_key(env_file_path, 'ENABLE_CONSOLE_LOGGING', 'true' if console_enabled else 'false')
+            os.environ['ENABLE_CONSOLE_LOGGING'] = 'true' if console_enabled else 'false'
         
         # Reload dotenv to ensure all changes are picked up
         from dotenv import load_dotenv
         load_dotenv(override=True)
         
-        # Log the action
-        from utils.logger import log_info
-        log_info(f'Log settings updated by admin: enabled={enabled}', {
-            'admin_email': user.get('email'),
-            'admin_uid': user.get('uid'),
-            'enabled': enabled
-        })
+        # Log the action only if logging is enabled
+        if os.getenv('ENABLE_FILE_LOGGING', 'false').lower() == 'true':
+            from utils.logger import log_info
+            log_info(f'Log settings updated by admin', {
+                'admin_email': user.get('email'),
+                'admin_uid': user.get('uid'),
+                'file_logging_enabled': enabled,
+                'console_logging_enabled': console_enabled
+            })
+        
+        message_parts = []
+        if enabled is not None:
+            message_parts.append(f'File logging {"enabled" if enabled else "disabled"}')
+        if console_enabled is not None:
+            message_parts.append(f'Console logging {"enabled" if console_enabled else "disabled"}')
         
         return jsonify({
             'success': True,
-            'message': f'Logging {"enabled" if enabled else "disabled"} successfully. Changes will take effect immediately.',
+            'message': f'{", ".join(message_parts)} successfully. Server restart required for console logging changes.',
             'settings': {
-                'enabled': enabled,
+                'enabled': os.getenv('ENABLE_FILE_LOGGING', 'false').lower() == 'true',
+                'console_enabled': os.getenv('ENABLE_CONSOLE_LOGGING', 'true').lower() == 'true',
                 'log_level': os.getenv('LOG_LEVEL', 'INFO'),
                 'log_file_path': os.getenv('LOG_FILE_PATH', 'logs/app.log')
             }

@@ -28,6 +28,9 @@ class AppLogger:
         # Check if file logging is enabled
         self._file_logging_enabled = os.getenv('ENABLE_FILE_LOGGING', 'false').lower() == 'true'
         
+        # Check if console logging is enabled
+        console_logging_enabled = os.getenv('ENABLE_CONSOLE_LOGGING', 'true').lower() == 'true'
+        
         # Create logger
         self._logger = logging.getLogger('medreport_app')
         log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
@@ -43,11 +46,13 @@ class AppLogger:
             datefmt='%Y-%m-%d %H:%M:%S'
         )
         
-        # Console handler (always enabled)
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-        console_handler.setFormatter(detailed_formatter)
-        self._logger.addHandler(console_handler)
+        # Console handler (only if enabled)
+        if console_logging_enabled:
+            console_handler = logging.StreamHandler()
+            console_handler.setLevel(logging.INFO)
+            console_handler.setFormatter(detailed_formatter)
+            self._logger.addHandler(console_handler)
+            self._logger.info("Console logging enabled")
         
         # File handler (only if enabled)
         if self._file_logging_enabled:
@@ -72,8 +77,10 @@ class AppLogger:
             self._logger.addHandler(file_handler)
             
             self._logger.info(f"File logging enabled: {log_file_path}")
-        else:
-            self._logger.info("File logging disabled")
+        
+        # If both are disabled, add a null handler to prevent warnings
+        if not console_logging_enabled and not self._file_logging_enabled:
+            self._logger.addHandler(logging.NullHandler())
 
     def get_logger(self):
         """Get the logger instance"""
