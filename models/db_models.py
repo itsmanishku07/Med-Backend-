@@ -240,7 +240,8 @@ class DoctorAvailabilitySlot(Base):
 
     id = Column(String(128), primary_key=True, default=lambda: str(uuid.uuid4()))
     doctor_id = Column(String(128), ForeignKey('users.id'), index=True, nullable=False)
-    day_of_week = Column(String(20), nullable=False)
+    day_of_week = Column(String(20), nullable=True)  # For weekly template
+    date = Column(DateTime, nullable=True, index=True)  # For specific date slots
     start_time = Column(String(5), nullable=False)
     end_time = Column(String(5), nullable=False)
     max_appointments = Column(String(10), default='10')

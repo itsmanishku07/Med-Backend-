@@ -40,6 +40,46 @@ class AppointmentRepository:
                 .all()
             return [self._to_dict(a) for a in appointments]
 
+    def get_doctor_completed_cases(self, doctor_id: str) -> List[Dict[str, Any]]:
+        with SessionLocal() as session:
+            print(f"[REPO DEBUG] Querying completed cases for doctor_id: {doctor_id}")
+            appointments = session.query(Appointment)\
+                .filter(
+                    Appointment.doctor_id == doctor_id,
+                    Appointment.status.in_([AppointmentStatus.ACCEPTED, AppointmentStatus.COMPLETED])
+                )\
+                .order_by(Appointment.scheduled_at.desc().nullslast(), Appointment.requested_at.desc())\
+                .all()
+            print(f"[REPO DEBUG] Found {len(appointments)} appointments")
+            
+            result = []
+            for appt in appointments:
+                print(f"[REPO DEBUG] Appointment: {appt.id}, Status: {appt.status.value}, Doctor: {appt.doctor_id}")
+                appt_dict = self._to_dict(appt)
+                
+                # Fetch patient's reports assigned to this doctor
+                from models.db_models import MedicalReport
+                reports = session.query(MedicalReport)\
+                    .filter(
+                        MedicalReport.patient_id == appt.patient_id,
+                        MedicalReport.assigned_doctor_id == doctor_id
+                    )\
+                    .order_by(MedicalReport.uploaded_at.desc())\
+                    .limit(5)\
+                    .all()
+                
+                appt_dict['patient_reports'] = [{
+                    'id': r.id,
+                    'file_name': r.file_name,
+                    'status': r.status.value,
+                    'uploaded_at': r.uploaded_at.isoformat() if r.uploaded_at else None,
+                    'medical_specialty': r.medical_specialty
+                } for r in reports]
+                
+                result.append(appt_dict)
+            
+            return result
+
     def update_appointment(self, appointment_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         with SessionLocal() as session:
             appointment = session.query(Appointment).filter(Appointment.id == appointment_id).first()

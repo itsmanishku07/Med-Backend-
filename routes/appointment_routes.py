@@ -95,6 +95,32 @@ def get_doctor_appointments():
     appointments = appointment_repo.get_doctor_appointments(db_user['id'])
     return jsonify({'success': True, 'appointments': appointments})
 
+@appointment_bp.route('/doctor/<doctor_id>/completed-cases', methods=['GET'])
+def get_doctor_completed_cases(doctor_id):
+    user, err = _require_auth()
+    if err: return err
+
+    db_user = user_repo.find_by_firebase_uid(user['uid'])
+    if not db_user:
+        return jsonify({'success': False, 'message': 'User not found'}), 404
+
+    print(f"[DEBUG] Fetching completed cases for doctor_id: {doctor_id}")
+    print(f"[DEBUG] Current user: {db_user['id']}, role: {user.get('role')}")
+
+    if user.get('role') != 'DOCTOR' and user.get('role') != 'PATIENT':
+        return jsonify({'success': False, 'message': 'Access denied'}), 403
+
+    if user.get('role') == 'DOCTOR' and db_user['id'] != doctor_id:
+        print(f"[DEBUG] Unauthorized: user {db_user['id']} trying to access doctor {doctor_id}")
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+
+    completed_cases = appointment_repo.get_doctor_completed_cases(doctor_id)
+    print(f"[DEBUG] Found {len(completed_cases)} completed cases")
+    for case in completed_cases:
+        print(f"[DEBUG] Case: {case['id']}, Status: {case['status']}, Patient: {case['patient_name']}")
+    
+    return jsonify({'success': True, 'completed_cases': completed_cases})
+
 @appointment_bp.route('/<appointment_id>/status', methods=['PUT'])
 def update_appointment_status(appointment_id):
     user, err = _require_auth()

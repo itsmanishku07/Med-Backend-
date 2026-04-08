@@ -111,6 +111,7 @@ def create_app():
     from routes.availability_routes import availability_bp
     from routes.review_routes import review_bp
     from routes.logs_routes import logs_bp
+    from routes.database_admin_routes import database_admin_bp
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(medical_bp, url_prefix='/api/medical-reports')
@@ -123,6 +124,7 @@ def create_app():
     app.register_blueprint(availability_bp, url_prefix='/api/availability')
     app.register_blueprint(logs_bp, url_prefix='/api/logs')
     app.register_blueprint(review_bp, url_prefix='/api/reviews')
+    app.register_blueprint(database_admin_bp, url_prefix='/api/database-admin')
 
     from routes.chat_socket import register_socket_events
     register_socket_events(socketio)
