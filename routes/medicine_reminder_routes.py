@@ -89,18 +89,15 @@ def get_medicine_info(reminder_id):
     if not reminder:
         return jsonify({'success': False, 'message': 'Reminder not found'}), 404
 
-    # If AI info already exists, return it (caching)
     if reminder.get('ai_info'):
         return jsonify({'success': True, 'ai_info': reminder['ai_info']})
 
-    # Otherwise, generate it using AI
     try:
         from services.databricks_ai_service import DatabricksAIService
         ai_service = DatabricksAIService()
         
         info = ai_service.get_medicine_info(reminder['medicine_name'])
         
-        # Save to DB
         updated = reminder_repo.update_ai_info(reminder_id, info)
         
         return jsonify({'success': True, 'ai_info': info})

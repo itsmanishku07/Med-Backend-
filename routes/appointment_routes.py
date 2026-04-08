@@ -32,13 +32,11 @@ def request_appointment():
     preferred_time = None
     if preferred_time_str:
         try:
-            # Handle possible 'Z' offset or simple ISO
             clean_date = preferred_time_str.replace('Z', '+00:00')
             preferred_time = datetime.fromisoformat(clean_date)
         except ValueError:
             return jsonify({'success': False, 'message': 'Invalid preferred time format'}), 400
 
-    # Resolve IDs
     db_patient = user_repo.find_by_firebase_uid(user['uid'])
     db_doctor = user_repo.find_by_id(doctor_id)
 
@@ -53,7 +51,6 @@ def request_appointment():
             preferred_time=preferred_time
         )
 
-        # Notify Doctor
         notif_msg = f"Patient {db_patient['name']} has requested an appointment."
         if preferred_time:
             time_str = preferred_time.strftime('%B %d, %Y at %I:%M %p')
@@ -104,8 +101,8 @@ def update_appointment_status(appointment_id):
     if err: return err
 
     data = request.get_json() or {}
-    status = data.get('status') # ACCEPTED, REJECTED, etc.
-    scheduled_at_str = data.get('scheduled_at') # ISO string
+    status = data.get('status')
+    scheduled_at_str = data.get('scheduled_at')
     doctor_notes = data.get('doctor_notes', '')
 
     db_user = user_repo.find_by_firebase_uid(user['uid'])
@@ -114,14 +111,12 @@ def update_appointment_status(appointment_id):
     if not appointment:
         return jsonify({'success': False, 'message': 'Appointment not found'}), 404
 
-    # Authorization Check (Only assigned doctor can update)
     if user.get('role') != 'DOCTOR' or appointment['doctor_id'] != db_user['id']:
         return jsonify({'success': False, 'message': 'Unauthorized'}), 403
 
     updates = {'status': status, 'doctor_notes': doctor_notes}
     if scheduled_at_str:
         try:
-            # Handle possible 'Z' offset or simple ISO
             clean_date = scheduled_at_str.replace('Z', '+00:00')
             updates['scheduled_at'] = datetime.fromisoformat(clean_date)
         except ValueError:
@@ -130,10 +125,8 @@ def update_appointment_status(appointment_id):
     try:
         updated = appointment_repo.update_appointment(appointment_id, updates)
 
-        # Notify Patient
         notif_msg = f"Your appointment has been {status.lower()}."
         if updated['scheduled_at']:
-            # Format time for message (simple approach)
             time_str = datetime.fromisoformat(updated['scheduled_at']).strftime('%B %d, %Y at %I:%M %p')
             notif_msg += f" Scheduled for: {time_str}"
 

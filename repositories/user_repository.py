@@ -22,7 +22,6 @@ class UserRepository:
             'updated_at': user.updated_at.isoformat() + 'Z' if user.updated_at else None,
         }
 
-    # ... existing methods ...
 
     def create_pending_registration(self, email: str, password_encrypted: str, name: str, role: str, token: str, expires_at: datetime) -> PendingRegistration:
         with SessionLocal() as session:
@@ -58,7 +57,6 @@ class UserRepository:
 
     def find_by_email(self, email: str) -> dict | None:
         with SessionLocal() as session:
-            # Query by lowercase email
             user = session.query(User).filter(User.email.ilike(email)).first()
             return self._to_dict(user) if user else None
 
@@ -91,7 +89,6 @@ class UserRepository:
 
     def update_user(self, user_id: str, updates: dict) -> dict:
         with SessionLocal() as session:
-            # Support both db UUID and firebase_uid
             user = session.query(User).filter_by(id=user_id).first()
             if not user:
                 user = session.query(User).filter_by(firebase_uid=user_id).first()

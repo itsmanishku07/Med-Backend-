@@ -25,5 +25,5 @@ def init_db():
         User, MedicalReport, Chat, ChatMessage,
         Notification, MedicalReportAIChat, MedicineReminder, PushSubscription,
         Appointment, DoctorAvailabilitySlot, DoctorBlockedDate, DoctorReview
-    )  # noqa: F401
+    )
     Base.metadata.create_all(bind=engine)

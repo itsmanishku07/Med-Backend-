@@ -85,7 +85,6 @@ def create_review(doctor_id):
                 db, doctor_id, user['id'], rating, comment
             )
             
-            # Get updated stats
             stats = ReviewRepository.get_doctor_rating_stats(db, doctor_id)
         
         return jsonify({

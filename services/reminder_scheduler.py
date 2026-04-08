@@ -20,7 +20,7 @@ def _fire_reminders():
 
         now = datetime.now()
         hhmm = now.strftime('%H:%M')
-        day_name = now.strftime('%a')   # Mon, Tue, …
+        day_name = now.strftime('%a')
 
         with SessionLocal() as session:
             reminders = session.query(MedicineReminder).filter_by(is_active=True).all()
@@ -30,7 +30,6 @@ def _fire_reminders():
                 if r.days and day_name not in r.days:
                     continue
 
-                # Get all push subscriptions for this user
                 subs = session.query(PushSubscription).filter_by(user_id=r.user_id).all()
                 for sub in subs:
                     body = f'Time to take {r.medicine_name}'
@@ -47,7 +46,6 @@ def _fire_reminders():
                         data={'medicine_name': r.medicine_name, 'dosage': r.dosage or ''},
                     )
                     if not ok:
-                        # Subscription expired — remove it
                         session.delete(sub)
             session.commit()
     except Exception as e:

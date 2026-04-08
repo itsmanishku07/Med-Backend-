@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 
 DATABRICKS_TOKEN = os.getenv('DATABRICKS_TOKEN', '')
 DATABRICKS_API_URL = os.getenv('DATABRICKS_API_URL', '')
-# Default to a vision model if not specified
 DATABRICKS_MODEL_ENDPOINT = os.getenv(
     'DATABRICKS_MODEL_ENDPOINT',
     '/serving-endpoints/databricks-meta-llama-3-1-8b-instruct/invocations'
@@ -33,7 +32,6 @@ class DatabricksAIService:
         if not self.enabled:
             raise RuntimeError("Databricks not configured. Please set DATABRICKS_TOKEN and DATABRICKS_API_URL.")
 
-        # Adopt the ResumeBot "ATS/Medical Expert" persona and structured instruction set
         system_prompt = (
             "You are a Clinical Analysis & Medical Data Expert. "
             "Your task is to accurately extract structured information from medical reports. "
@@ -53,14 +51,12 @@ class DatabricksAIService:
         }
 
         if extracted_text:
-            # TEXT mode (Same way as ResumeBot - uses a STRING for content)
             user_content = (
                 f"Please process the following medical report text and extract detailed JSON information based on this schema: {json.dumps(json_schema)}\n\n"
                 f"## MEDICAL REPORT TEXT:\n{extracted_text}\n\n"
                 f"Respond with ONLY the JSON object."
             )
         else:
-            # VISION mode (Direct for images - uses a LIST for multimodal)
             encoded_image = base64.b64encode(file_content).decode('utf-8')
             mime_type = "application/pdf" if file_type.lower() == "pdf" else f"image/{file_type.lower()}"
             if file_type.lower() in ("jpg", "jpeg"):
@@ -93,7 +89,6 @@ class DatabricksAIService:
             content = data['choices'][0]['message']['content']
             logger.info(f"AI Response Content: {content[:100]}...")
 
-            # Robust JSON scraper: look for the first '{' and last '}'
             try:
                 start_idx = content.find('{')
                 end_idx = content.rfind('}')
@@ -122,7 +117,6 @@ class DatabricksAIService:
         if not self.enabled:
             return "Databricks AI not configured."
 
-        # Enrich the context with structured analysis if available
         analysis_str = json.dumps(analysis, indent=2) if analysis else "No structured analysis available."
         
         messages = [
@@ -150,8 +144,7 @@ class DatabricksAIService:
             }
         ]
         
-        # Add history before the final question
-        for msg in history[:-1]: # skip the last user message as we already included it
+        for msg in history[:-1]:
             messages.insert(-1, {"role": msg['role'], "content": msg['content']})
 
         payload = {"messages": messages, "max_tokens": 1500, "temperature": 0.1}
@@ -216,7 +209,6 @@ class DatabricksAIService:
             data = response.json()
             content = data['choices'][0]['message']['content']
             
-            # Robust JSON scraper
             start_idx = content.find('{')
             end_idx = content.rfind('}')
             if start_idx != -1 and end_idx != -1:

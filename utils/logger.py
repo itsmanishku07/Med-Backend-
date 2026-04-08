@@ -7,7 +7,6 @@ from functools import wraps
 from flask import request, g
 import time
 
-# Load environment variables
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -25,28 +24,22 @@ class AppLogger:
 
     def _initialize_logger(self):
         """Initialize the logger with file and console handlers"""
-        # Check if file logging is enabled
         self._file_logging_enabled = os.getenv('ENABLE_FILE_LOGGING', 'false').lower() == 'true'
         
-        # Check if console logging is enabled
         console_logging_enabled = os.getenv('ENABLE_CONSOLE_LOGGING', 'true').lower() == 'true'
         
-        # Create logger
         self._logger = logging.getLogger('medreport_app')
         log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
         self._logger.setLevel(getattr(logging, log_level, logging.INFO))
         
-        # Prevent duplicate handlers
         if self._logger.handlers:
             return
         
-        # Create formatters
         detailed_formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - [%(filename)s:%(lineno)d] - %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S'
         )
         
-        # Console handler (only if enabled)
         if console_logging_enabled:
             console_handler = logging.StreamHandler()
             console_handler.setLevel(logging.INFO)
@@ -54,17 +47,14 @@ class AppLogger:
             self._logger.addHandler(console_handler)
             self._logger.info("Console logging enabled")
         
-        # File handler (only if enabled)
         if self._file_logging_enabled:
             log_file_path = os.getenv('LOG_FILE_PATH', 'logs/app.log')
             log_dir = os.path.dirname(log_file_path)
             
-            # Create logs directory if it doesn't exist
             if log_dir and not os.path.exists(log_dir):
                 os.makedirs(log_dir)
             
-            # Rotating file handler
-            max_bytes = int(os.getenv('LOG_MAX_BYTES', 10485760))  # 10MB default
+            max_bytes = int(os.getenv('LOG_MAX_BYTES', 10485760))
             backup_count = int(os.getenv('LOG_BACKUP_COUNT', 5))
             
             file_handler = RotatingFileHandler(
@@ -78,7 +68,6 @@ class AppLogger:
             
             self._logger.info(f"File logging enabled: {log_file_path}")
         
-        # If both are disabled, add a null handler to prevent warnings
         if not console_logging_enabled and not self._file_logging_enabled:
             self._logger.addHandler(logging.NullHandler())
 
@@ -91,7 +80,6 @@ class AppLogger:
         return self._file_logging_enabled
 
 
-# Global logger instance
 app_logger = AppLogger()
 logger = app_logger.get_logger()
 
@@ -103,10 +91,8 @@ def log_request(func):
         if not app_logger.is_file_logging_enabled():
             return func(*args, **kwargs)
         
-        # Start time
         start_time = time.time()
         
-        # Log request
         request_data = {
             'method': request.method,
             'path': request.path,
@@ -115,7 +101,6 @@ def log_request(func):
             'timestamp': datetime.utcnow().isoformat()
         }
         
-        # Get user info if available
         if hasattr(g, 'current_user') and g.current_user:
             request_data['user_id'] = g.current_user.get('uid')
             request_data['user_email'] = g.current_user.get('email')
@@ -123,13 +108,10 @@ def log_request(func):
         logger.info(f"REQUEST: {json.dumps(request_data)}")
         
         try:
-            # Execute the function
             response = func(*args, **kwargs)
             
-            # Calculate duration
             duration = time.time() - start_time
             
-            # Log response
             status_code = response[1] if isinstance(response, tuple) else 200
             response_data = {
                 'path': request.path,
@@ -143,7 +125,6 @@ def log_request(func):
             return response
             
         except Exception as e:
-            # Log error
             duration = time.time() - start_time
             error_data = {
                 'path': request.path,

@@ -21,9 +21,7 @@ class MedicalAIService:
         """
         final_text = existing_text
         
-        # 1. Local Parsing (Lite Extraction)
         if not final_text:
-            # Case A: PDF extraction
             if file_type.lower() == 'pdf':
                 try:
                     import PyPDF2
@@ -38,14 +36,12 @@ class MedicalAIService:
                 except Exception as e:
                     logger.warning(f"PyPDF2 extraction failed: {e}")
 
-            # Case B: Image OCR (JPG, PNG)
             elif file_type.lower() in ('jpg', 'jpeg', 'png'):
                 try:
                     from PIL import Image
                     import pytesseract
                     
                     img = Image.open(io.BytesIO(file_content))
-                    # Perform OCR
                     raw_text = pytesseract.image_to_string(img)
                     final_text = clean_medical_text(raw_text)
                     logger.info(f"Image OCR extraction success. Length: {len(final_text)}")
@@ -53,14 +49,10 @@ class MedicalAIService:
                     logger.warning(f"Local Image OCR failed: {e}. AI will attempt Cloud Vision.")
 
         try:
-            # 2. AI Analysis (Uses Text Mode if final_text exists, else Vision Mode)
-            # If it's an image and no text is available, Llama 3.1 8b will fail with 400 (Expected).
             result = self.databricks.analyze_medical_report(file_content, file_type, final_text)
             
-            # Use summary or default for full_text compatibility
             summary = result.get('summary', 'Report analyzed via Databricks AI.')
             
-            # Add extraction metadata for the UI
             result['extraction_info'] = {
                 "text_length": len(final_text) if final_text else 0,
                 "file_type": file_type,

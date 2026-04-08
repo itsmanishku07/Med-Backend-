@@ -31,5 +31,4 @@ def init_firebase():
         cred = credentials.Certificate(cred_dict)
         firebase_admin.initialize_app(cred)
     else:
-        # Initialize with no credentials (dev/test mode — token verification will fail gracefully)
         firebase_admin.initialize_app()

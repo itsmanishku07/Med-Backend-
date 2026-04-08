@@ -3,7 +3,6 @@ from flask_socketio import emit, join_room, leave_room, disconnect
 
 logger = logging.getLogger(__name__)
 
-# sid → {user_id (firebase_uid), user_role, user_name, db_id}
 active_users = {}
 
 
@@ -69,7 +68,6 @@ def register_socket_events(socketio):
         if not chat:
             return
 
-        # Access check
         db_id = user_info['db_id']
         role = user_info['user_role']
         if role == 'PATIENT' and chat['patient_id'] != db_id:
@@ -153,7 +151,6 @@ def register_socket_events(socketio):
 
             emit('new_message', msg, to=chat_id, skip_sid=sid)
 
-            # Notify recipient
             notif_repo = NotificationRepository()
             recipient_db_id = chat['doctor_id'] if role == 'PATIENT' else chat['patient_id']
             try:
@@ -164,7 +161,6 @@ def register_socket_events(socketio):
                     message=f'New message from {user_info["user_name"]}',
                     related_id=chat_id,
                 )
-                # Find recipient firebase_uid to emit to their personal room
                 user_repo = UserRepository()
                 recipient = user_repo.find_by_id(recipient_db_id)
                 if recipient:

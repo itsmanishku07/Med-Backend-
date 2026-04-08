@@ -16,7 +16,7 @@ notif_repo = NotificationRepository()
 logger = logging.getLogger(__name__)
 
 ALLOWED_EXTENSIONS = {'pdf', 'jpg', 'jpeg', 'png'}
-MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+MAX_FILE_SIZE = 10 * 1024 * 1024
 
 
 def _require_auth():
@@ -42,7 +42,6 @@ def _run_analysis_background(report_id: str, file_bytes: bytes, file_type: str,
         ai_service = MedicalAIService()
         ai_analysis, full_text = ai_service.analyze_report(file_bytes, file_type)
 
-        # Doctor matching
         matching_service = DoctorMatchingService()
         specialty = matching_service.detect_medical_specialty(ai_analysis)
         doctors = user_repo.get_all_doctors()
@@ -103,7 +102,6 @@ def my_reports():
             assigned = report_repo.find_by_doctor_id(user['uid'])
             assigned_ids = {r['id'] for r in assigned}
 
-            # Unassigned reports matching doctor's specializations or suggested_doctors
             db_doctor = user_repo.find_by_firebase_uid(user['uid'])
             doctor_specs = [s.lower() for s in (db_doctor.get('specializations') or [])]
             doctor_db_id = db_doctor['id'] if db_doctor else None
@@ -132,7 +130,6 @@ def my_reports():
                     reports.append(r)
             reports.sort(key=lambda r: r.get('uploaded_at') or '', reverse=True)
         else:
-            # ADMIN
             reports = report_repo.get_all_reports()
 
         return jsonify({'success': True, 'reports': reports, 'count': len(reports)})
@@ -202,20 +199,17 @@ def upload_report():
     if size > MAX_FILE_SIZE:
         return jsonify({'success': False, 'message': 'File too large. Max 10MB'}), 400
 
-    # Resolve firebase_uid to db user id
     db_user = user_repo.find_by_firebase_uid(user['uid'])
     if not db_user:
         return jsonify({'success': False, 'message': 'User not found in database'}), 404
 
-    # Read binary content
     file_bytes = file.read()
 
-    # Create report record with binary content
     try:
         report = report_repo.create_report(
             patient_id=db_user['id'],
             file_name=file.filename,
-            file_path="DB_STORAGE",   # Placeholder or just keep empty
+            file_path="DB_STORAGE",
             file_type=ext,
             file_size=str(size),
             file_content=file_bytes,
@@ -223,7 +217,6 @@ def upload_report():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
-    # Start background analysis thread
     t = threading.Thread(
         target=_run_analysis_background,
         args=(report['id'], file_bytes, ext, user['uid']),
@@ -274,7 +267,6 @@ def get_report(report_id):
     if role == 'PATIENT' and report['patient_id'] != db_id:
         return jsonify({'success': False, 'message': 'Access denied'}), 403
     if role == 'DOCTOR' and report['assigned_doctor_id'] != db_id and report['assigned_doctor_id'] is not None:
-        # Allow access to unassigned reports too
         pass
 
     return jsonify({'success': True, 'report': report})
@@ -312,7 +304,6 @@ def get_report_file(report_id):
     if not report:
         return jsonify({'success': False, 'message': 'Report not found'}), 404
 
-    # Authorization Check
     db_user = user_repo.find_by_firebase_uid(user['uid'])
     db_id = db_user['id'] if db_user else None
     role = user.get('role', 'PATIENT')
@@ -327,7 +318,6 @@ def get_report_file(report_id):
     if not content:
         return jsonify({'success': False, 'message': 'File content not found'}), 404
         
-    # Guess mime type
     mime = 'application/pdf'
     if report['file_type'] in ('jpg', 'jpeg'): mime = 'image/jpeg'
     elif report['file_type'] == 'png': mime = 'image/png'
@@ -416,7 +406,6 @@ def assign_doctor(report_id):
     try:
         updated = report_repo.assign_doctor(report_id, doctor_firebase_uid)
 
-        # Create chat if not exists
         from repositories.chat_repository import ChatRepository
         chat_repo = ChatRepository()
         existing_chat = chat_repo.find_by_report_id(report_id)
@@ -430,9 +419,8 @@ def assign_doctor(report_id):
                         doctor_id=doctor_db['id'],
                     )
                 except Exception:
-                    pass  # Duplicate key — already exists
+                    pass
 
-        # Notify patient
         notif_repo.create_notification(
             user_id=updated['patient_id'],
             notification_type='DOCTOR_ACCEPTED',
@@ -574,7 +562,6 @@ def get_ai_chat_history(report_id):
     if not report:
         return jsonify({'success': False, 'message': 'Report not found'}), 404
 
-    # Authorization Check
     db_user = user_repo.find_by_firebase_uid(user['uid'])
     db_id = db_user['id'] if db_user else None
     if user.get('role') == 'PATIENT' and report['patient_id'] != db_id:
@@ -598,7 +585,6 @@ def ask_ai_question(report_id):
     if not report:
         return jsonify({'success': False, 'message': 'Report not found'}), 404
 
-    # Authorization Check
     db_user = user_repo.find_by_firebase_uid(user['uid'])
     db_id = db_user['id'] if db_user else None
     if user.get('role') == 'PATIENT' and report['patient_id'] != db_id:
@@ -608,19 +594,14 @@ def ask_ai_question(report_id):
         from services.medical_ai_service import MedicalAIService
         ai_service = MedicalAIService()
 
-        # Get context
         context = report.get('extracted_text') or ""
         if not context and report.get('ai_analysis'):
-             # Fallback to summary if full text not available
              context = report['ai_analysis'].get('summary', "")
 
-        # Get history
         history = report_repo.get_ai_chat_history(report_id)
 
-        # Save user message
         user_msg = report_repo.create_ai_chat_message(report_id, 'user', question)
 
-        # Get AI answer
         answer = ai_service.ask_question_about_report(
             context=context,
             analysis=report.get('ai_analysis'),
@@ -628,7 +609,6 @@ def ask_ai_question(report_id):
             question=question
         )
 
-        # Save AI message
         ai_msg = report_repo.create_ai_chat_message(report_id, 'assistant', answer)
 
         return jsonify({

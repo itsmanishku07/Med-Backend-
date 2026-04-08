@@ -157,7 +157,6 @@ class MedicalReportRepository:
             report = session.query(MedicalReport).filter_by(id=report_id).first()
             return report.file_content if report else None
 
-    # ── AI Chat methods ──────────────────────────────────────────────────
     def create_ai_chat_message(self, report_id: str, role: str, content: str) -> dict:
         from models.db_models import MedicalReportAIChat
         with SessionLocal() as session:

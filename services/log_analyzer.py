@@ -14,18 +14,15 @@ class LogAnalyzer:
     def parse_log_line(self, line):
         """Parse a single log line"""
         try:
-            # Extract timestamp
             timestamp_match = re.search(r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})', line)
             if not timestamp_match:
                 return None
             
             timestamp = datetime.strptime(timestamp_match.group(1), '%Y-%m-%d %H:%M:%S')
             
-            # Extract log level
             level_match = re.search(r' - (DEBUG|INFO|WARNING|ERROR|CRITICAL) - ', line)
             level = level_match.group(1) if level_match else 'UNKNOWN'
             
-            # Extract JSON data if present - look for REQUEST, RESPONSE, ERROR, INFO, WARNING
             json_match = re.search(r'(REQUEST|RESPONSE|ERROR|INFO|WARNING): ({.+})', line)
             data = None
             log_type = None
@@ -34,7 +31,6 @@ class LogAnalyzer:
                 log_type = json_match.group(1)
                 try:
                     json_str = json_match.group(2)
-                    # Handle truncated JSON by finding the last complete brace
                     brace_count = 0
                     last_valid_pos = 0
                     for i, char in enumerate(json_str):
@@ -49,12 +45,10 @@ class LogAnalyzer:
                     if last_valid_pos > 0:
                         json_str = json_str[:last_valid_pos]
                     
-                    # Python logging uses single quotes, but JSON requires double quotes
                     json_str = json_str.replace("'", '"')
                     
                     data = json.loads(json_str)
                 except Exception as e:
-                    # If JSON parsing fails, try to extract key info manually
                     pass
             
             return {
@@ -79,19 +73,15 @@ class LogAnalyzer:
             with open(self.log_file_path, 'r', encoding='utf-8', errors='ignore') as f:
                 content = f.read()
             
-            # Split by timestamp pattern to get complete log entries
             log_pattern = r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})'
             parts = re.split(log_pattern, content)
             
-            # Reconstruct log lines
             lines = []
             for i in range(1, len(parts), 2):
                 if i + 1 < len(parts):
-                    # Combine timestamp with its content, remove newlines within the entry
                     log_line = parts[i] + parts[i + 1].replace('\n', ' ').replace('\r', ' ')
                     lines.append(log_line)
             
-            # Parse from the end for recent logs
             for line in reversed(lines[-max_lines:]):
                 parsed = self.parse_log_line(line)
                 if parsed and parsed['timestamp'] >= cutoff_time:
@@ -131,7 +121,6 @@ class LogAnalyzer:
             if not log['data']:
                 continue
             
-            # Count requests
             if log['type'] == 'REQUEST':
                 stats['total_requests'] += 1
                 hour = log['timestamp'].strftime('%Y-%m-%d %H:00')
@@ -144,7 +133,6 @@ class LogAnalyzer:
                 if user_id:
                     stats['top_users'][user_id] += 1
             
-            # Count responses and response times
             elif log['type'] == 'RESPONSE':
                 status_code = log['data'].get('status_code')
                 if status_code:
@@ -153,7 +141,6 @@ class LogAnalyzer:
                 duration = log['data'].get('duration_ms', 0)
                 response_times.append(duration)
                 
-                # Track slow requests (>2 seconds)
                 if duration > 2000:
                     stats['slow_requests'].append({
                         'path': log['data'].get('path'),
@@ -161,7 +148,6 @@ class LogAnalyzer:
                         'timestamp': log['timestamp'].isoformat()
                     })
             
-            # Count errors
             elif log['type'] == 'ERROR':
                 stats['total_errors'] += 1
                 error_type = log['data'].get('error_type', 'Unknown')
@@ -174,22 +160,19 @@ class LogAnalyzer:
                     'timestamp': log['timestamp'].isoformat()
                 })
             
-            # Count warnings
             elif log['level'] == 'WARNING':
                 stats['total_warnings'] += 1
         
-        # Calculate average response time
         if response_times:
             stats['avg_response_time'] = round(sum(response_times) / len(response_times), 2)
         
-        # Convert defaultdict and Counter to regular dict for JSON serialization
         stats['requests_by_hour'] = dict(stats['requests_by_hour'])
         stats['requests_by_endpoint'] = dict(stats['requests_by_endpoint'].most_common(10))
         stats['errors_by_type'] = dict(stats['errors_by_type'].most_common(10))
         stats['status_codes'] = dict(stats['status_codes'])
         stats['top_users'] = dict(stats['top_users'].most_common(10))
-        stats['slow_requests'] = stats['slow_requests'][-20:]  # Last 20 slow requests
-        stats['recent_errors'] = stats['recent_errors'][-50:]  # Last 50 errors
+        stats['slow_requests'] = stats['slow_requests'][-20:]
+        stats['recent_errors'] = stats['recent_errors'][-50:]
         
         return stats
     
@@ -197,15 +180,12 @@ class LogAnalyzer:
         """Get paginated logs with filtering"""
         logs = self.read_logs(hours=hours)
         
-        # Filter by level
         if level:
             logs = [log for log in logs if log['level'] == level.upper()]
         
-        # Filter by search term
         if search:
             logs = [log for log in logs if search.lower() in log['raw'].lower()]
         
-        # Paginate
         total = len(logs)
         start = (page - 1) * per_page
         end = start + per_page

@@ -50,16 +50,13 @@ class DoctorMatchingService:
             spec_lower = [s.lower() for s in specializations]
 
             score = 0.0
-            # Exact specialty match
             if specialty_lower in spec_lower:
                 score = 1.0
             else:
-                # Partial keyword match
                 for s in spec_lower:
                     if specialty_lower in s or s in specialty_lower:
                         score = 0.7
                         break
-                    # Check keyword overlap
                     keywords = SPECIALTY_KEYWORDS.get(specialty, [])
                     if any(kw in s for kw in keywords):
                         score = max(score, 0.5)

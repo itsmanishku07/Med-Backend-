@@ -23,11 +23,9 @@ class NotificationRepository:
         """Accept either firebase_uid or db UUID, return db UUID."""
         from repositories.user_repository import UserRepository
         repo = UserRepository()
-        # Try as db UUID first
         user = repo.find_by_id(user_id)
         if user:
             return user['id']
-        # Try as firebase_uid
         user = repo.find_by_firebase_uid(user_id)
         if user:
             return user['id']

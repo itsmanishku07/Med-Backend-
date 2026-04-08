@@ -15,9 +15,8 @@ def create_app():
     app = Flask(__name__)
     app.url_map.strict_slashes = False
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'change-me')
-    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB limit for profile pictures and reports
+    app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024
 
-    # Initialize logger first
     from utils.logger import app_logger, logger, log_info
     app_logger._initialize_logger()
     log_info("Application starting", {"port": os.getenv('PORT', 8081)})
@@ -47,10 +46,9 @@ def create_app():
         engineio_logger=False,
         ping_timeout=60,
         ping_interval=25,
-        manage_session=False,   # we use Firebase tokens, not Flask sessions
+        manage_session=False,
     )
 
-    # Add request/response logging middleware
     @app.before_request
     def log_request_info():
         from flask import request, g
@@ -93,19 +91,15 @@ def create_app():
         
         return response
 
-    # Initialize Firebase Admin SDK
     from config.firebase_config import init_firebase
     init_firebase()
 
-    # Initialize PostgreSQL tables
     from config.database import init_db
     init_db()
 
-    # Start medicine reminder push scheduler
     from services.reminder_scheduler import start_scheduler
     start_scheduler()
 
-    # Register blueprints
     from routes.auth_routes import auth_bp
     from routes.medical_report_routes import medical_bp
     from routes.notification_routes import notification_bp
@@ -130,11 +124,9 @@ def create_app():
     app.register_blueprint(logs_bp, url_prefix='/api/logs')
     app.register_blueprint(review_bp, url_prefix='/api/reviews')
 
-    # Register SocketIO events
     from routes.chat_socket import register_socket_events
     register_socket_events(socketio)
 
-    # Error handlers (all in app.py only)
     @app.errorhandler(400)
     def bad_request(e):
         return jsonify({'success': False, 'message': str(e.description)}), 400
@@ -176,8 +168,6 @@ def create_app():
 if __name__ == '__main__':
     app, socketio = create_app()
     port = int(os.getenv('PORT', 8081))
-    # use_reloader=False is critical — the reloader forks a second process
-    # that breaks WebSocket handling in threading mode
     socketio.run(
         app,
         host='0.0.0.0',

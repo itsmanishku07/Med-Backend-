@@ -16,7 +16,6 @@ def send_verification_email(user_email, user_name, verification_link):
         print("Error: SMTP credentials missing in .env")
         return False
 
-    # Professional HTML Template
     html_content = f"""
     <!DOCTYPE html>
     <html>
@@ -64,13 +63,11 @@ def send_verification_email(user_email, user_name, verification_link):
     </html>
     """
 
-    # Create Message
     message = MIMEMultipart("alternative")
     message["Subject"] = "Verify your MedReport AI account"
     message["From"] = f"MedReport AI <{smtp_email}>"
     message["To"] = user_email
 
-    # Plain-text version for email clients that prefer it
     text_content = f"Hello {user_name},\n\nWelcome to MedReport AI. Please verify your email by clicking the link below:\n{verification_link}"
 
     message.attach(MIMEText(text_content, "plain"))

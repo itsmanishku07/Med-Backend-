@@ -60,9 +60,6 @@ class AppointmentRepository:
         if not appointment:
             return None
         
-        # Include patient and doctor names if available in the session
-        # For simplicity, we'll just return the basic fields first
-        # In a real app, you'd join with User table
         data = {
             'id': appointment.id,
             'patient_id': appointment.patient_id,
@@ -76,7 +73,6 @@ class AppointmentRepository:
             'created_at': appointment.created_at.isoformat() if appointment.created_at else None
         }
 
-        # Fetch names for UI convenience
         with SessionLocal() as session:
             patient = session.query(User).filter(User.id == appointment.patient_id).first()
             doctor = session.query(User).filter(User.id == appointment.doctor_id).first()

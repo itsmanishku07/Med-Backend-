@@ -10,14 +10,12 @@ class ReviewRepository:
     @staticmethod
     def create_review(db: Session, doctor_id: str, patient_id: str, rating: int, comment: str = None):
         """Create or update a review"""
-        # Check if review already exists
         existing = db.query(DoctorReview).filter(
             DoctorReview.doctor_id == doctor_id,
             DoctorReview.patient_id == patient_id
         ).first()
         
         if existing:
-            # Update existing review
             existing.rating = str(rating)
             existing.comment = comment
             existing.updated_at = datetime.utcnow()
@@ -25,7 +23,6 @@ class ReviewRepository:
             db.refresh(existing)
             return existing
         else:
-            # Create new review
             review = DoctorReview(
                 id=str(uuid.uuid4()),
                 doctor_id=doctor_id,

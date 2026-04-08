@@ -39,7 +39,6 @@ def dashboard():
                              if r.get('ai_analysis') and
                              r['ai_analysis'].get('severity_level') == 'CRITICAL')
 
-        # Count active chats (chats with messages)
         from config.database import SessionLocal
         from models.db_models import Chat
         with SessionLocal() as session:

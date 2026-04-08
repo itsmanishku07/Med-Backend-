@@ -101,7 +101,6 @@ class ChatRepository:
                 read=False,
             )
             session.add(msg)
-            # Update last_message_at on chat
             chat = session.query(Chat).filter_by(id=chat_id).first()
             if chat:
                 chat.last_message_at = datetime.utcnow()
@@ -112,13 +111,11 @@ class ChatRepository:
     def mark_messages_as_read(self, chat_id: str, reader_role: str) -> None:
         with SessionLocal() as session:
             if reader_role == 'PATIENT':
-                # Patient reads → mark doctor's messages as read
                 (session.query(ChatMessage)
                  .filter_by(chat_id=chat_id, read=False)
                  .filter(ChatMessage.sender_role == UserRole.DOCTOR)
                  .update({'read': True}))
             elif reader_role == 'DOCTOR':
-                # Doctor reads → mark patient's messages as read
                 (session.query(ChatMessage)
                  .filter_by(chat_id=chat_id, read=False)
                  .filter(ChatMessage.sender_role == UserRole.PATIENT)
@@ -127,7 +124,6 @@ class ChatRepository:
 
     def delete_chat(self, chat_id: str) -> bool:
         with SessionLocal() as session:
-            # Delete messages first (cascade may handle it, but explicit is safer)
             session.query(ChatMessage).filter_by(chat_id=chat_id).delete()
             chat = session.query(Chat).filter_by(id=chat_id).first()
             if not chat:

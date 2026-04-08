@@ -21,7 +21,6 @@ def _require_admin():
     return user, None
 
 
-# Add CORS preflight handler for all routes
 @logs_bp.after_request
 def after_request(response):
     response.headers.add('Access-Control-Allow-Origin', '*')
@@ -42,7 +41,6 @@ def get_log_statistics():
     analyzer = LogAnalyzer()
     stats = analyzer.get_statistics(hours=hours)
     
-    # Return stats even if logging is disabled (to show historical data)
     return jsonify({
         'success': True,
         'statistics': stats,
@@ -73,7 +71,6 @@ def get_logs():
         hours=hours
     )
     
-    # Format logs for frontend
     formatted_logs = []
     for log in result['logs']:
         formatted_logs.append({
@@ -119,7 +116,6 @@ def download_logs():
 @logs_bp.route('/clear', methods=['DELETE', 'OPTIONS'])
 def clear_logs():
     """Clear/delete log file"""
-    # Handle OPTIONS request for CORS preflight
     if request.method == 'OPTIONS':
         return jsonify({'success': True}), 200
     
@@ -130,12 +126,10 @@ def clear_logs():
     log_file_path = os.getenv('LOG_FILE_PATH', 'logs/app.log')
     
     try:
-        # Clear the log file by opening it in write mode and truncating
         if os.path.exists(log_file_path):
             with open(log_file_path, 'w') as f:
                 f.write('')
             
-            # Log the action only if logging is enabled
             if os.getenv('ENABLE_FILE_LOGGING', 'false').lower() == 'true':
                 from utils.logger import log_info
                 log_info('Log file cleared by admin', {
@@ -162,7 +156,6 @@ def clear_logs():
 @logs_bp.route('/settings', methods=['GET', 'OPTIONS'])
 def get_log_settings():
     """Get current log settings"""
-    # Handle OPTIONS request for CORS preflight
     if request.method == 'OPTIONS':
         return jsonify({'success': True}), 200
     
@@ -187,7 +180,6 @@ def get_log_settings():
 @logs_bp.route('/settings', methods=['PUT', 'OPTIONS'])
 def update_log_settings():
     """Update log settings in .env file"""
-    # Handle OPTIONS request for CORS preflight
     if request.method == 'OPTIONS':
         return jsonify({'success': True}), 200
     
@@ -204,21 +196,17 @@ def update_log_settings():
         
         env_file_path = '.env'
         
-        # Update file logging if provided
         if enabled is not None:
             set_key(env_file_path, 'ENABLE_FILE_LOGGING', 'true' if enabled else 'false')
             os.environ['ENABLE_FILE_LOGGING'] = 'true' if enabled else 'false'
         
-        # Update console logging if provided
         if console_enabled is not None:
             set_key(env_file_path, 'ENABLE_CONSOLE_LOGGING', 'true' if console_enabled else 'false')
             os.environ['ENABLE_CONSOLE_LOGGING'] = 'true' if console_enabled else 'false'
         
-        # Reload dotenv to ensure all changes are picked up
         from dotenv import load_dotenv
         load_dotenv(override=True)
         
-        # Log the action only if logging is enabled
         if os.getenv('ENABLE_FILE_LOGGING', 'false').lower() == 'true':
             from utils.logger import log_info
             log_info(f'Log settings updated by admin', {

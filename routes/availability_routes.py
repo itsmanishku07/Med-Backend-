@@ -69,7 +69,6 @@ def create_availability_slot():
     try:
         data = request.get_json()
         
-        # Validate required fields
         required_fields = ['day_of_week', 'start_time', 'end_time']
         for field in required_fields:
             if field not in data:
@@ -78,7 +77,6 @@ def create_availability_slot():
                     'message': f'Missing required field: {field}'
                 }), 400
         
-        # Validate day of week
         valid_days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
         if data['day_of_week'] not in valid_days:
             return jsonify({
@@ -86,7 +84,6 @@ def create_availability_slot():
                 'message': 'Invalid day of week'
             }), 400
         
-        # Validate time format (HH:MM)
         try:
             datetime.strptime(data['start_time'], '%H:%M')
             datetime.strptime(data['end_time'], '%H:%M')
@@ -96,7 +93,6 @@ def create_availability_slot():
                 'message': 'Invalid time format. Use HH:MM'
             }), 400
         
-        # Validate start time is before end time
         if data['start_time'] >= data['end_time']:
             return jsonify({
                 'success': False,
@@ -207,7 +203,6 @@ def block_date():
                 'message': 'Missing required field: date'
             }), 400
         
-        # Parse date
         try:
             date = datetime.fromisoformat(data['date'].replace('Z', '+00:00'))
         except ValueError:
@@ -216,7 +211,6 @@ def block_date():
                 'message': 'Invalid date format. Use ISO format (YYYY-MM-DD)'
             }), 400
         
-        # Check if date is in the past
         if date.date() < datetime.utcnow().date():
             return jsonify({
                 'success': False,
@@ -322,7 +316,6 @@ def check_doctor_availability(doctor_id):
                 'message': 'Missing required field: date'
             }), 400
         
-        # Parse date
         try:
             date = datetime.fromisoformat(data['date'].replace('Z', '+00:00'))
         except ValueError:
@@ -332,7 +325,6 @@ def check_doctor_availability(doctor_id):
             }), 400
         
         with SessionLocal() as db:
-            # Check if date is blocked
             is_blocked = AvailabilityRepository.is_date_blocked(db, doctor_id, date)
             
             if is_blocked:
@@ -342,10 +334,8 @@ def check_doctor_availability(doctor_id):
                     'reason': 'Doctor is not available on this date'
                 }), 200
             
-            # Get day of week
             day_name = date.strftime('%A')
             
-            # Check if doctor has slots for this day
             slots = AvailabilityRepository.get_doctor_availability_for_day(db, doctor_id, day_name)
             
             if not slots:

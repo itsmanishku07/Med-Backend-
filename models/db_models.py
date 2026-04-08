@@ -168,8 +168,8 @@ class MedicineReminder(Base):
     user_id = Column(String(128), ForeignKey('users.id'), index=True, nullable=False)
     medicine_name = Column(String(255), nullable=False)
     dosage = Column(String(100), nullable=True)
-    reminder_time = Column(String(5), nullable=False)   # "HH:MM" 24h format
-    days = Column(JSON, nullable=True)                  # ["Mon","Tue",...] or null = every day
+    reminder_time = Column(String(5), nullable=False)
+    days = Column(JSON, nullable=True)
     is_active = Column(Boolean, default=True)
     notes = Column(Text, nullable=True)
     ai_info = Column(JSON, nullable=True)
@@ -196,7 +196,7 @@ class MedicalReportAIChat(Base):
 
     id = Column(String(128), primary_key=True, default=lambda: str(uuid.uuid4()))
     report_id = Column(String(128), ForeignKey('medical_reports.id'), index=True, nullable=False)
-    role = Column(String(50), nullable=False)  # 'user' or 'assistant'
+    role = Column(String(50), nullable=False)
     content = Column(Text, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow, index=True)
 
@@ -211,10 +211,10 @@ class Appointment(Base):
     doctor_id = Column(String(128), ForeignKey('users.id'), index=True, nullable=False)
     status = Column(SAEnum(AppointmentStatus), default=AppointmentStatus.PENDING, index=True)
     requested_at = Column(DateTime, default=datetime.utcnow)
-    preferred_time = Column(DateTime, nullable=True) # Suggested by patient
-    scheduled_at = Column(DateTime, nullable=True)  # Set by doctor upon acceptance
-    notes = Column(Text, nullable=True)              # Patient's message
-    doctor_notes = Column(Text, nullable=True)       # Doctor's response
+    preferred_time = Column(DateTime, nullable=True)
+    scheduled_at = Column(DateTime, nullable=True)
+    notes = Column(Text, nullable=True)
+    doctor_notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -240,9 +240,9 @@ class DoctorAvailabilitySlot(Base):
 
     id = Column(String(128), primary_key=True, default=lambda: str(uuid.uuid4()))
     doctor_id = Column(String(128), ForeignKey('users.id'), index=True, nullable=False)
-    day_of_week = Column(String(20), nullable=False)  # Monday, Tuesday, etc.
-    start_time = Column(String(5), nullable=False)    # HH:MM format (24h)
-    end_time = Column(String(5), nullable=False)      # HH:MM format (24h)
+    day_of_week = Column(String(20), nullable=False)
+    start_time = Column(String(5), nullable=False)
+    end_time = Column(String(5), nullable=False)
     max_appointments = Column(String(10), default='10')
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -255,7 +255,7 @@ class DoctorBlockedDate(Base):
 
     id = Column(String(128), primary_key=True, default=lambda: str(uuid.uuid4()))
     doctor_id = Column(String(128), ForeignKey('users.id'), index=True, nullable=False)
-    date = Column(DateTime, nullable=False, index=True)  # Specific date to block
+    date = Column(DateTime, nullable=False, index=True)
     reason = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -268,7 +268,7 @@ class DoctorReview(Base):
     id = Column(String(128), primary_key=True, default=lambda: str(uuid.uuid4()))
     doctor_id = Column(String(128), ForeignKey('users.id'), index=True, nullable=False)
     patient_id = Column(String(128), ForeignKey('users.id'), index=True, nullable=False)
-    rating = Column(String(10), nullable=False)  # 1-5 stars
+    rating = Column(String(10), nullable=False)
     comment = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
