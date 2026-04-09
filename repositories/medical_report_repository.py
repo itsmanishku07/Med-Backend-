@@ -144,10 +144,16 @@ class MedicalReportRepository:
         return self.update_report(report_id, {'is_archived': is_archived})
 
     def delete_report(self, report_id: str) -> bool:
+        from models.db_models import MedicalReportAIChat
         with SessionLocal() as session:
             report = session.query(MedicalReport).filter_by(id=report_id).first()
             if not report:
                 return False
+            
+            # Delete AI chat history first (foreign key constraint)
+            session.query(MedicalReportAIChat).filter_by(report_id=report_id).delete()
+            
+            # Now delete the report
             session.delete(report)
             session.commit()
             return True
