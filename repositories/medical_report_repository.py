@@ -206,3 +206,10 @@ class MedicalReportRepository:
                 'content': m.content,
                 'timestamp': m.timestamp.isoformat() + 'Z'
             } for m in messages]
+
+    def clear_ai_chat_history(self, report_id: str) -> bool:
+        from models.db_models import MedicalReportAIChat
+        with SessionLocal() as session:
+            session.query(MedicalReportAIChat).filter_by(report_id=report_id).delete()
+            session.commit()
+            return True

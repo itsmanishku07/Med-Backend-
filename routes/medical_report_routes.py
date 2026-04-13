@@ -553,8 +553,8 @@ def update_ai_analysis(report_id):
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
-@medical_bp.route('/<report_id>/ai-chat', methods=['GET'])
-def get_ai_chat_history(report_id):
+@medical_bp.route('/<report_id>/ai-chat', methods=['GET', 'DELETE'])
+def ai_chat_history_handler(report_id):
     user, err = _require_auth()
     if err: return err
 
@@ -566,6 +566,10 @@ def get_ai_chat_history(report_id):
     db_id = db_user['id'] if db_user else None
     if user.get('role') == 'PATIENT' and report['patient_id'] != db_id:
         return jsonify({'success': False, 'message': 'Access denied'}), 403
+
+    if request.method == 'DELETE':
+        report_repo.clear_ai_chat_history(report_id)
+        return jsonify({'success': True, 'message': 'Chat history cleared'})
 
     history = report_repo.get_ai_chat_history(report_id)
     return jsonify({'success': True, 'history': history})
@@ -599,6 +603,7 @@ def ask_ai_question(report_id):
              context = report['ai_analysis'].get('summary', "")
 
         history = report_repo.get_ai_chat_history(report_id)
+        language = data.get('language', 'English')
 
         user_msg = report_repo.create_ai_chat_message(report_id, 'user', question)
 
@@ -606,7 +611,8 @@ def ask_ai_question(report_id):
             context=context,
             analysis=report.get('ai_analysis'),
             history=history,
-            question=question
+            question=question,
+            language=language
         )
 
         ai_msg = report_repo.create_ai_chat_message(report_id, 'assistant', answer)

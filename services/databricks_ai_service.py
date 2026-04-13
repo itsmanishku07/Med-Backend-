@@ -109,7 +109,7 @@ class DatabricksAIService:
             logger.error(f"Databricks analysis failed: {e}")
             raise
 
-    def answer_question_with_context(self, context: str, analysis: dict, history: list[dict], question: str) -> str:
+    def answer_question_with_context(self, context: str, analysis: dict, history: list[dict], question: str, language: str = "English") -> str:
         """
         High-quality chat about the medical report.
         Uses both raw text and structured analysis for context.
@@ -125,6 +125,8 @@ class DatabricksAIService:
                 "content": (
                     "You are a professional Medical AI Assistant. Answer the patient's questions about their report. "
                     "Use the Provided Context (Extracted Text) and the Structured Analysis below. "
+                    f"CRITICAL: You MUST respond strictly in {language}. "
+                    f"If the user asks in English but the target language is {language}, translate your thoughts into {language} for the final response. "
                     "CRITICAL FORMATTING INSTRUCTIONS:\n"
                     "1. Use clear Markdown headers (# ## ###).\n"
                     "2. Use Tables for any lab results or comparisons.\n"

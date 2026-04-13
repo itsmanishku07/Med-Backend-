@@ -67,8 +67,8 @@ class MedicalAIService:
             logger.error(f"MedicalAIService.analyze_report failed: {e}")
             raise
 
-    def ask_question_about_report(self, context: str, analysis: dict, history: list[dict], question: str) -> str:
+    def ask_question_about_report(self, context: str, analysis: dict, history: list[dict], question: str, language: str = "English") -> str:
         """
         Answers user questions using the extracted report context and structured analysis.
         """
-        return self.databricks.answer_question_with_context(context, analysis, history, question)
+        return self.databricks.answer_question_with_context(context, analysis, history, question, language)
