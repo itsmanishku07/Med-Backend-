@@ -223,7 +223,12 @@ def signup_request():
             expires_at=expires_at
         )
         
-        frontend_url = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+        # Use the Origin header if available (where the frontend is currently running),
+        # otherwise fall back to the FRONTEND_URL environment variable.
+        frontend_url = request.headers.get('Origin')
+        if not frontend_url:
+            frontend_url = os.getenv('FRONTEND_URL')
+            
         verification_link = f"{frontend_url}/verify-email?token={token}"
         
         if send_verification_email(email, name, verification_link):
