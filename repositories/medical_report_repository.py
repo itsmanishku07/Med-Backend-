@@ -27,6 +27,7 @@ class MedicalReportRepository:
             'assigned_at': report.assigned_at.isoformat() + 'Z' if report.assigned_at else None,
             'reviewed_at': report.reviewed_at.isoformat() + 'Z' if report.reviewed_at else None,
             'is_archived': report.is_archived,
+            'is_private': report.is_private or False,
             'doctor_edit_permission': report.doctor_edit_permission or False,
             'extracted_text': report.extracted_text,
         }
@@ -89,7 +90,24 @@ class MedicalReportRepository:
             reports = (session.query(MedicalReport)
                        .filter(
                            MedicalReport.assigned_doctor_id.is_(None),
-                           MedicalReport.status.notin_([ReportStatus.FAILED])
+                           MedicalReport.status.notin_([ReportStatus.FAILED]),
+                           MedicalReport.is_private.is_(False)
+                       )
+                       .order_by(MedicalReport.uploaded_at.desc())
+                       .all())
+            return [self._to_dict(r) for r in reports]
+
+    def find_private_reports_for_doctor(self, firebase_uid: str) -> list[dict]:
+        """Returns reports privately assigned to a specific doctor."""
+        from repositories.user_repository import UserRepository
+        user = UserRepository().find_by_firebase_uid(firebase_uid)
+        if not user:
+            return []
+        with SessionLocal() as session:
+            reports = (session.query(MedicalReport)
+                       .filter(
+                           MedicalReport.assigned_doctor_id == user['id'],
+                           MedicalReport.is_private.is_(True)
                        )
                        .order_by(MedicalReport.uploaded_at.desc())
                        .all())

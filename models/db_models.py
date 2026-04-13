@@ -101,6 +101,7 @@ class MedicalReport(Base):
     assigned_at = Column(DateTime, nullable=True)
     reviewed_at = Column(DateTime, nullable=True)
     is_archived = Column(Boolean, default=False, index=True)
+    is_private = Column(Boolean, default=False)
     doctor_edit_permission = Column(Boolean, default=False)
     extracted_text = Column(Text, nullable=True)
     file_content = Column(LargeBinary, nullable=True)

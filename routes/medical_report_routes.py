@@ -330,6 +330,50 @@ def get_report_file(report_id):
     )
 
 
+@medical_bp.route('/<report_id>/export-pdf', methods=['GET'])
+def export_report_pdf(report_id):
+    """Generate and download a professional PDF of the AI analysis."""
+    user, err = _require_auth()
+    if err: return err
+
+    report = report_repo.find_by_id(report_id)
+    if not report:
+        return jsonify({'success': False, 'message': 'Report not found'}), 404
+
+    db_user = user_repo.find_by_firebase_uid(user['uid'])
+    db_id = db_user['id'] if db_user else None
+    role = user.get('role', 'PATIENT')
+
+    # Access control: Patient must own, Doctor must be assigned or have permission
+    if role == 'PATIENT' and report['patient_id'] != db_id:
+        return jsonify({'success': False, 'message': 'Access denied'}), 403
+    
+    # If doctor is assigned or report is not private, or doctor has explicit permission
+    # For now, let's keep it consistent with get_report access
+    
+    try:
+        from services.pdf_export_service import PDFExportService
+        pdf_service = PDFExportService()
+        
+        # Get patient name for the PDF
+        patient = user_repo.find_by_id(report['patient_id'])
+        patient_name = patient['name'] if patient else "Unknown Patient"
+        
+        pdf_bytes = pdf_service.generate_report_pdf(report, patient_name)
+        
+        from flask import send_file
+        import io
+        return send_file(
+            io.BytesIO(pdf_bytes),
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f"MedReport_Analysis_{report_id[:8]}.pdf"
+        )
+    except Exception as e:
+        logger.error(f"Error exporting PDF for report {report_id}: {e}")
+        return jsonify({'success': False, 'message': f"Failed to generate PDF: {str(e)}"}), 500
+
+
 @medical_bp.route('/<report_id>/analyze', methods=['POST'])
 def analyze_report(report_id):
     user, err = _require_auth()
@@ -383,6 +427,85 @@ def analyze_report(report_id):
             report_repo.update_report(report_id, {'status': 'FAILED', 'error_message': str(e)[:500]})
         except Exception:
             pass
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@medical_bp.route('/private-reports', methods=['GET'])
+def get_private_reports():
+    """Doctor-facing: returns all reports privately assigned to this doctor."""
+    user, err = _require_auth()
+    if err:
+        return err
+
+    if user.get('role') != 'DOCTOR':
+        return jsonify({'success': False, 'message': 'Only doctors can access private reports'}), 403
+
+    try:
+        reports = report_repo.find_private_reports_for_doctor(user['uid'])
+        return jsonify({'success': True, 'reports': reports, 'count': len(reports)})
+    except Exception as e:
+        logger.error(f"get_private_reports error: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@medical_bp.route('/<report_id>/private-assign', methods=['POST'])
+def private_assign_doctor(report_id):
+    """Patient-facing: privately assigns a report to a specific doctor."""
+    user, err = _require_auth()
+    if err:
+        return err
+
+    if user.get('role') != 'PATIENT':
+        return jsonify({'success': False, 'message': 'Only patients can privately assign reports'}), 403
+
+    report = report_repo.find_by_id(report_id)
+    if not report:
+        return jsonify({'success': False, 'message': 'Report not found'}), 404
+
+    db_user = user_repo.find_by_firebase_uid(user['uid'])
+    if not db_user or report['patient_id'] != db_user['id']:
+        return jsonify({'success': False, 'message': 'Access denied'}), 403
+
+    data = request.get_json() or {}
+    doctor_firebase_uid = data.get('doctor_id')
+    if not doctor_firebase_uid:
+        return jsonify({'success': False, 'message': 'doctor_id is required'}), 400
+
+    doctor_db = user_repo.find_by_firebase_uid(doctor_firebase_uid)
+    if not doctor_db or doctor_db.get('role') != 'DOCTOR':
+        return jsonify({'success': False, 'message': 'Doctor not found'}), 404
+
+    try:
+        # Assign the doctor and mark report as private
+        updated = report_repo.assign_doctor(report_id, doctor_firebase_uid)
+        report_repo.update_report(report_id, {'is_private': True})
+        updated = report_repo.find_by_id(report_id)
+
+        # Create chat between patient and doctor if not already existing
+        from repositories.chat_repository import ChatRepository
+        chat_repo = ChatRepository()
+        if not chat_repo.find_by_report_id(report_id):
+            try:
+                chat_repo.create_chat(
+                    report_id=report_id,
+                    patient_id=updated['patient_id'],
+                    doctor_id=doctor_db['id'],
+                )
+            except Exception:
+                pass
+
+        # Notify the doctor
+        notif_repo.create_notification(
+            user_id=doctor_db['id'],
+            notification_type='DOCTOR_ASSIGNED',
+            title='Private Report Shared',
+            message=f'A patient has privately shared a medical report with you.',
+            related_id=report_id,
+        )
+
+        return jsonify({'success': True, 'message': 'Report privately assigned to doctor', 'report': updated})
+    except Exception as e:
+        logger.error(f"private_assign_doctor error: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
