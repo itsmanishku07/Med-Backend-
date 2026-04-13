@@ -30,20 +30,24 @@ class MedicalReportRepository:
             'is_private': report.is_private or False,
             'doctor_edit_permission': report.doctor_edit_permission or False,
             'extracted_text': report.extracted_text,
+            'assigned_doctor_name': report.assigned_doctor.name if report.assigned_doctor else None,
         }
 
     def create_report(self, patient_id: str, file_name: str, file_path: str,
-                      file_type: str, file_size: str, file_content: bytes = None) -> dict:
+                      file_type: str, file_size: str, file_content: bytes = None,
+                      assigned_doctor_id: str = None, is_private: bool = False) -> dict:
         with SessionLocal() as session:
             report = MedicalReport(
                 id=str(uuid.uuid4()),
                 patient_id=patient_id,
+                assigned_doctor_id=assigned_doctor_id,
                 file_name=file_name,
                 file_path=file_path,
                 file_type=file_type,
                 file_size=file_size,
                 file_content=file_content,
                 status=ReportStatus.PENDING,
+                is_private=is_private,
                 uploaded_at=datetime.utcnow(),
             )
             session.add(report)
@@ -107,6 +111,22 @@ class MedicalReportRepository:
             reports = (session.query(MedicalReport)
                        .filter(
                            MedicalReport.assigned_doctor_id == user['id'],
+                           MedicalReport.is_private.is_(True)
+                       )
+                       .order_by(MedicalReport.uploaded_at.desc())
+                       .all())
+            return [self._to_dict(r) for r in reports]
+
+    def find_private_reports_for_patient(self, firebase_uid: str) -> list[dict]:
+        """Returns reports that the patient shared privately."""
+        from repositories.user_repository import UserRepository
+        user = UserRepository().find_by_firebase_uid(firebase_uid)
+        if not user:
+            return []
+        with SessionLocal() as session:
+            reports = (session.query(MedicalReport)
+                       .filter(
+                           MedicalReport.patient_id == user['id'],
                            MedicalReport.is_private.is_(True)
                        )
                        .order_by(MedicalReport.uploaded_at.desc())

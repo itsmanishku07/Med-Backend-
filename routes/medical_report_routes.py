@@ -189,6 +189,11 @@ def upload_report():
     if not file.filename:
         return jsonify({'success': False, 'message': 'No file selected'}), 400
 
+    # Optional parameters for private report sharing
+    doctor_id_input = request.form.get('doctor_id')
+    is_private_str = request.form.get('is_private', 'false').lower()
+    is_private = is_private_str == 'true'
+
     ext = _get_file_ext(file.filename)
     if ext not in ALLOWED_EXTENSIONS:
         return jsonify({'success': False, 'message': f'File type not allowed. Allowed: {", ".join(ALLOWED_EXTENSIONS)}'}), 400
@@ -203,6 +208,18 @@ def upload_report():
     if not db_user:
         return jsonify({'success': False, 'message': 'User not found in database'}), 404
 
+    assigned_doctor_db_id = None
+    if doctor_id_input:
+        # Pass ID to a method that can check both ID and Firebase UID
+        # (Fall back to find_by_id if that fails, but let's try a robust approach)
+        doctor_db = user_repo.find_by_id(doctor_id_input)
+        if not doctor_db:
+            doctor_db = user_repo.find_by_firebase_uid(doctor_id_input)
+            
+        if not doctor_db or doctor_db.get('role') != 'DOCTOR':
+            return jsonify({'success': False, 'message': 'Target doctor not found'}), 404
+        assigned_doctor_db_id = doctor_db['id']
+
     file_bytes = file.read()
 
     try:
@@ -213,8 +230,36 @@ def upload_report():
             file_type=ext,
             file_size=str(size),
             file_content=file_bytes,
+            assigned_doctor_id=assigned_doctor_db_id,
+            is_private=is_private
         )
+
+        # If it's a private report for a doctor, set up chat and notification
+        if assigned_doctor_db_id and is_private:
+            # Create chat if not exists
+            from repositories.chat_repository import ChatRepository
+            chat_repo = ChatRepository()
+            if not chat_repo.find_by_report_id(report['id']):
+                try:
+                    chat_repo.create_chat(
+                        report_id=report['id'],
+                        patient_id=db_user['id'],
+                        doctor_id=assigned_doctor_db_id,
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to create chat for private report: {e}")
+
+            # Notify the doctor
+            notif_repo.create_notification(
+                user_id=assigned_doctor_db_id,
+                notification_type='DOCTOR_ASSIGNED',
+                title='Private Report Shared',
+                message=f'A patient has shared a private report with you: {file.filename}',
+                related_id=report['id'],
+            )
+
     except Exception as e:
+        logger.error(f"Upload report error: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
     t = threading.Thread(
@@ -437,11 +482,12 @@ def get_private_reports():
     if err:
         return err
 
-    if user.get('role') != 'DOCTOR':
-        return jsonify({'success': False, 'message': 'Only doctors can access private reports'}), 403
-
+    role = user.get('role', 'PATIENT')
     try:
-        reports = report_repo.find_private_reports_for_doctor(user['uid'])
+        if role == 'DOCTOR':
+            reports = report_repo.find_private_reports_for_doctor(user['uid'])
+        else:
+            reports = report_repo.find_private_reports_for_patient(user['uid'])
         return jsonify({'success': True, 'reports': reports, 'count': len(reports)})
     except Exception as e:
         logger.error(f"get_private_reports error: {e}")
