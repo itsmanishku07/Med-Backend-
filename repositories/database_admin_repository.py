@@ -176,32 +176,56 @@ class DatabaseAdminRepository:
                 firebase_uid = user.firebase_uid
                 user_email = user.email
                 
+                print(f"Attempting to delete user: {user_email} (DB ID: {user_id}, Firebase UID: {firebase_uid})")
+                
                 # Delete from Firebase first
                 firebase_deleted = False
                 firebase_error = None
-                try:
-                    firebase_auth.delete_user(firebase_uid)
-                    firebase_deleted = True
-                    print(f"Deleted user from Firebase: {firebase_uid}")
-                except Exception as e:
-                    firebase_error = str(e)
-                    print(f"Failed to delete from Firebase: {e}")
                 
-                # Delete from database
-                session.delete(user)
-                session.commit()
+                if firebase_uid:
+                    try:
+                        firebase_auth.delete_user(firebase_uid)
+                        firebase_deleted = True
+                        print(f"Successfully deleted user from Firebase: {firebase_uid}")
+                    except firebase_auth.UserNotFoundError:
+                        firebase_deleted = True # Technically true since they are gone
+                        firebase_error = "User not found in Firebase"
+                        print(f"User {firebase_uid} not found in Firebase, proceeding with DB deletion.")
+                    except Exception as e:
+                        firebase_deleted = False
+                        firebase_error = str(e)
+                        print(f"CRITICAL: Failed to delete from Firebase: {e}")
+                else:
+                    firebase_deleted = True # Allow DB deletion if no UID exists
+                    firebase_error = "No Firebase UID associated with this user"
+                    print(f"Warning: User {user_email} has no Firebase UID.")
                 
-                message = f"User {user_email} deleted from database"
+                # ONLY delete from database if Firebase deletion was successful or not needed.
+                # This prevents leaving "zombie" accounts in Firebase that we can't find in our DB.
                 if firebase_deleted:
-                    message += " and Firebase"
-                elif firebase_error:
-                    message += f" (Firebase deletion failed: {firebase_error})"
+                    session.delete(user)
+                    session.commit()
+                    db_deleted = True
+                else:
+                    session.rollback()
+                    db_deleted = False
+                
+                if db_deleted:
+                    message = f"User {user_email} deleted from database"
+                    if firebase_error == "User not found in Firebase":
+                        message += " (was already missing from Firebase)"
+                    elif firebase_error:
+                        message += f" (Note: {firebase_error})"
+                    else:
+                        message += " and Firebase"
+                else:
+                    message = f"Failed to delete user: Firebase deletion error ({firebase_error})"
                 
                 return {
-                    'success': True,
+                    'success': db_deleted,
                     'message': message,
-                    'deleted_from_db': True,
-                    'deleted_from_firebase': firebase_deleted,
+                    'deleted_from_db': db_deleted,
+                    'deleted_from_firebase': firebase_deleted and not firebase_error,
                     'firebase_error': firebase_error
                 }
             except Exception as e:
