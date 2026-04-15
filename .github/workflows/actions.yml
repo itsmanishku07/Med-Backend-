@@ -23,6 +23,7 @@ jobs:
       run: |
         pkill -f app.py || true
 
-    - name: Start app
+    - name: Start app (fully detached)
       run: |
-        nohup python3 app.py
+        nohup python3 app.py > app.log 2>&1 &
+        disown
