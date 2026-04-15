@@ -24,4 +24,4 @@ jobs:
 
     - name: Start app
       run: |
-        nohup python3 app.py &
+        python3 app.py 
