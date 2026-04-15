@@ -23,7 +23,13 @@ jobs:
       run: |
         pkill -f app.py || true
 
-    - name: Start app (fully detached)
+    - name: Start app safely
       run: |
         nohup python3 app.py > app.log 2>&1 &
-        disown
+        sleep 5
+    
+        echo "==== CHECK PROCESS ===="
+        ps aux | grep app.py
+    
+        echo "==== LOG OUTPUT ===="
+        cat app.log || true
