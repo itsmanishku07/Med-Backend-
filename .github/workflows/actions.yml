@@ -19,7 +19,10 @@ jobs:
       run: |
         python3 -m pip install --upgrade pip
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-    - name: Start app (persist after CI)
+    - name: Stop runnung
       run: |
         pkill -f app.py || true
         setsid nohup python3 app.py > app.log 2>&1 < /dev/null &
+    - name: Start  App
+      run: |
+        python3 app.py  &
