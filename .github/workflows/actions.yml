@@ -1,21 +1,23 @@
-name: Deploy Python App
+name: Python application
 
 on:
   push:
     branches: [ "logger_w" ]
 
 jobs:
-  deploy:
+  build:
     runs-on: self-hosted
 
     steps:
     - uses: actions/checkout@v4
-
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.12"
     - name: Install dependencies
       run: |
-        pip install --upgrade pip
-        pip install -r requirements.txt
-
+        python3 -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Kill old app (if running)
       run: |
         pkill -f app.py || true
