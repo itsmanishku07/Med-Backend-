@@ -21,10 +21,7 @@ jobs:
           python3 -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      - name: Stop existing & start in background
+      - name: Deploy App
         run: |
-          pkill -f app.py || true
-          sleep 2
-          setsid nohup python3 app.py > app.log 2>&1 &
-          echo $! > /tmp/app.pid
-          echo "App started with PID $(cat /tmp/app.pid)"
+          sudo systemctl restart medapp
+          echo "App restarted successfully"
