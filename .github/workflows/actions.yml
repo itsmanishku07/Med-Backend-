@@ -25,7 +25,7 @@ jobs:
 
     - name: Start app safely
       run: |
-        nohup python3 app.py > app.log 2>&1 &
+        nohup python3 app.py 
         sleep 5
     
         echo "==== CHECK PROCESS ===="
