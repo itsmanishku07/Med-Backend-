@@ -1,27 +1,35 @@
-name: Python application
+name: Deploy Docker App
 
 on:
   push:
-    branches: [ "logger_w" ]
+    branches:
+      - logger_w
 
 jobs:
   med-backend:
     runs-on: self-hosted
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Set up Python 3.12
-      uses: actions/setup-python@v3
-      with:
-        python-version: "3.12"
-    - name: Install dependencies
-      run: |
-        python3 -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-    - name: Kill old app (if running)
-      run: |
-        pkill -f app.py || true
 
-    - name: Start app
-      run: |
-        nohup python3 app.py &
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Stop Old Container
+        run: |
+          docker stop med-backend-container || true
+          docker rm med-backend-container || true
+
+      - name: Remove Old Image
+        run: |
+          docker rmi med-backend-image || true
+
+      - name: Build Docker Image
+        run: |
+          docker build -t med-backend-image .
+
+      - name: Run Docker Container
+        run: |
+          docker run -d \
+            --name med-backend-container \
+            -p 8081:8081 \
+            med-backend-image
